@@ -270,8 +270,8 @@ export default function MentorsPage() {
   const [updateStage] = useUpdateMentorStageMutation()
 
   const filtered = mentors.filter(m => {
-    if (stageFilter !== 'all' && m.stage !== stageFilter) return false
-    if (domainFilter !== 'all' && m.domain !== domainFilter) return false
+    if (stageFilter !== 'all' && (m.stage as string) !== stageFilter) return false
+    if (domainFilter !== 'all' && (m.domain as string) !== domainFilter) return false
     if (search) {
       const s = search.toLowerCase()
       return m.name.toLowerCase().includes(s) ||
