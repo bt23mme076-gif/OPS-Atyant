@@ -1,7 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { setupListeners } from '@reduxjs/toolkit/query'
 import { baseApi } from './api/baseApi'
-import authReducer from './slices/authSlice'
+import authReducer, { setToken } from './slices/authSlice'
 
 import './api/authApi'
 import './api/mentorsApi'
@@ -20,13 +20,21 @@ export const store = configureStore({
     serializableCheck: {
       ignoredActionPaths: [
         'payload.data',
-        'meta.baseQueryMeta.request',   // ← add this
-        'meta.baseQueryMeta.response',  // ← add this too
+        'meta.baseQueryMeta.request',
+        'meta.baseQueryMeta.response',
       ],
     }
   }).concat(baseApi.middleware),
   devTools: process.env.NODE_ENV !== 'production',
 })
+
+// ✅ Page refresh pe localStorage se token restore karo
+if (typeof window !== 'undefined') {
+  const token = localStorage.getItem('atyant_token')
+  if (token) {
+    store.dispatch(setToken(token))
+  }
+}
 
 setupListeners(store.dispatch)
 export type RootState = ReturnType<typeof store.getState>

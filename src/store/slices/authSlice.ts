@@ -1,6 +1,18 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
-import type { AuthState, AuthUser } from '@/types'
-import { TOKEN_COOKIE } from '@/lib/constants'
+
+interface AuthUser {
+  id: string
+  name: string
+  email: string
+  role: string
+  status: string
+}
+
+interface AuthState {
+  user: AuthUser | null
+  token: string | null
+  isAuthenticated: boolean
+}
 
 const initialState: AuthState = {
   user: null,
@@ -16,22 +28,39 @@ const authSlice = createSlice({
       state.user = action.payload.user
       state.token = action.payload.token
       state.isAuthenticated = true
+      // ✅ localStorage mein save karo
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('atyant_token', action.payload.token)
+        localStorage.setItem('atyant_user', JSON.stringify(action.payload.user))
+      }
+    },
+    // ✅ Sirf token set karo — page refresh pe use hota hai
+    setToken(state, action: PayloadAction<string>) {
+      state.token = action.payload
+      state.isAuthenticated = true
+      // User bhi restore karo agar localStorage mein hai
+      if (typeof window !== 'undefined') {
+        const userStr = localStorage.getItem('atyant_user')
+        if (userStr) {
+          try {
+            state.user = JSON.parse(userStr)
+          } catch {
+            // ignore
+          }
+        }
+      }
     },
     clearCredentials(state) {
       state.user = null
       state.token = null
       state.isAuthenticated = false
-      if (typeof document !== 'undefined') {
-        document.cookie = `${TOKEN_COOKIE}=; path=/; max-age=0`
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('atyant_token')
+        localStorage.removeItem('atyant_user')
       }
     },
   },
 })
 
-export const { setCredentials, clearCredentials } = authSlice.actions
+export const { setCredentials, setToken, clearCredentials } = authSlice.actions
 export default authSlice.reducer
-
-export const selectAuth            = (state: { auth: AuthState }) => state.auth
-export const selectUser            = (state: { auth: AuthState }) => state.auth.user
-export const selectIsAuthenticated = (state: { auth: AuthState }) => state.auth.isAuthenticated
-export const selectToken           = (state: { auth: AuthState }) => state.auth.token
