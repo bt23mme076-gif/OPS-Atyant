@@ -37,10 +37,10 @@ function MentorModal({ open, onClose, mentor }: { open: boolean; onClose: () => 
     if (!form.name.trim()) return
     try {
       if (isEdit) {
-        await update({ id: mentor!.id, data: form }).unwrap()
+        await update({ id: mentor!.id, data: form as any }).unwrap()
         toast.success('Mentor updated')
       } else {
-        await create(form).unwrap()
+        await create(form as any).unwrap()
         toast.success(`${form.name} added`)
       }
       onClose()
