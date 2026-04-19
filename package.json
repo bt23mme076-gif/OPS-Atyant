@@ -36,5 +36,11 @@
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.4",
     "typescript": "^5.6.3"
+  },
+  "overrides": {
+    "@hello-pangea/dnd": {
+      "react": "$react",
+      "react-dom": "$react-dom"
+    }
   }
 }
