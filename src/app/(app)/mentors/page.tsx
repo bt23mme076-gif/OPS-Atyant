@@ -407,9 +407,9 @@ export default function MentorsPage() {
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex gap-2">
-                            {m.services?.video && <Video size={14} className="text-green-500" title="Video Call" />}
-                            {m.services?.audio && <Mic size={14} className="text-blue-500" title="Audio Call" />}
-                            {m.services?.chat && <MessageSquare size={14} className="text-purple-500" title="Personal Chat" />}
+                            {m.services?.video && <Video size={14} className="text-green-500" />}
+                            {m.services?.audio && <Mic size={14} className="text-blue-500" />}
+                            {m.services?.chat && <MessageSquare size={14} className="text-purple-500" />}
                             {!m.services?.video && !m.services?.audio && !m.services?.chat && <span className="text-gray-300">—</span>}
                           </div>
                         </td>

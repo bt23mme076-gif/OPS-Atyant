@@ -38,7 +38,7 @@ export const mentorsApi = baseApi.injectEndpoints({
             source: 'legacy_mongodb',
             stage: 'live',
             status: 'active',
-            notes: m.notes || '',
+            notes: `DEBUG services: ${JSON.stringify(m.services || [])} | ${m.notes || ''}`,
             legacyEducation: m.education,
             services: { video: vCall, audio: aCall, chat: pChat },
             createdAt: m.createdAt || m.lastActive || new Date().toISOString(),
