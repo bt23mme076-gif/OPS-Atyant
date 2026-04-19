@@ -78,5 +78,5 @@ src/
 │   ├── constants.ts      ← TOKEN_COOKIE, API_BASE, stage configs, nav items
 │   └── utils.ts          ← cn, formatDate, formatRelative, getInitials, etc.
 ├── types/index.ts
-└── middleware.ts          ← Route protection via atyant_session cookie
+└── proxy.ts               ← Route protection via atyant_session cookie
 ```

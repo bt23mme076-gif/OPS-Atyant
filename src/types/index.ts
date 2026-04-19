@@ -30,21 +30,31 @@ export type MentorStage =
   | 'live'
   | 'inactive'
 
+export type MentorDomain =
+  | 'swe' | 'product' | 'data' | 'design' | 'finance'
+  | 'core_engineering' | 'marketing' | 'operations' | 'other'
+
+export type MentorStatus = 'active' | 'inactive' | 'blacklisted'
+
 export interface Mentor {
   id: string
   name: string
   email: string
-  phone?: string | null
-  linkedin?: string | null
-  company?: string | null
-  domain?: string | null
-  source?: string | null
+  phone: string | null
+  linkedin: string | null
+  company: string | null
+  domain: MentorDomain | null
+  source: string | null
   stage: MentorStage
-  assignedToId?: string | null
-  assignedTo?: AuthUser | null
-  notes?: string | null
+  status: MentorStatus
+  notes: string | null
+  assignedToId: string | null
+  assignedTo: AuthUser | null
   createdAt: string
   updatedAt: string
+  // Legacy specific
+  legacyEducation?: any[]
+  services?: { video: boolean; audio: boolean; chat: boolean }
 }
 
 // ── Student ──────────────────────────────────────────────────

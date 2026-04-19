@@ -1,8 +1,8 @@
 'use client'
 import { useState } from 'react'
-import { Plus, Search, RefreshCw, LayoutGrid, List, ChevronRight, Linkedin, Building2, MapPin, Phone } from 'lucide-react'
+import { Plus, Search, RefreshCw, LayoutGrid, List, ChevronRight, Linkedin, Building2, MapPin, Phone, Video, Mic, GraduationCap, MessageSquare } from 'lucide-react'
 import {
-  useGetMentorsQuery, useCreateMentorMutation,
+  useGetMentorsQuery, useGetLegacyMentorsQuery, useCreateMentorMutation,
   useUpdateMentorStageMutation, useUpdateMentorMutation,
 } from '@/store/api/mentorsApi'
 import { Button, Badge, Avatar, Modal, Spinner, Empty } from '@/components/ui'
@@ -27,6 +27,7 @@ function MentorModal({ open, onClose, mentor }: { open: boolean; onClose: () => 
     company:  mentor?.company  ?? '',
     domain:   mentor?.domain   ?? '',
     source:   mentor?.source   ?? '',
+    status:   mentor?.status   ?? 'active',
     notes:    mentor?.notes    ?? '',
   })
   const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
@@ -77,9 +78,19 @@ function MentorModal({ open, onClose, mentor }: { open: boolean; onClose: () => 
               .map(s => <option key={s} value={s.toLowerCase().replace(' ', '_')}>{s}</option>)}
           </select>
         </div>
-        <div className="sm:col-span-2">
-          <label className="label block mb-1.5">Notes</label>
-          <textarea className="input resize-none" rows={2} value={form.notes} onChange={f('notes')} placeholder="Any notes about this mentor" />
+        <div className="sm:col-span-2 grid grid-cols-2 gap-3">
+          <div>
+            <label className="label block mb-1.5">Status</label>
+            <select className="input" value={form.status} onChange={f('status')}>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+              <option value="blacklisted">Blacklisted</option>
+            </select>
+          </div>
+          <div>
+            <label className="label block mb-1.5">Notes</label>
+            <textarea className="input resize-none" rows={1} value={form.notes} onChange={f('notes')} placeholder="Any notes" />
+          </div>
         </div>
       </div>
       <div className="flex justify-end gap-2 pt-4 mt-1 border-t border-gray-100">
@@ -175,10 +186,52 @@ function MentorDrawer({ mentor, onClose, onEdit }: { mentor: Mentor; onClose: ()
                 <div className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
                   <span className="text-[11px] font-bold text-gray-500">D</span>
                 </div>
-                <span className="capitalize">{mentor.domain.replace('_', ' ')}</span>
+                <span className="capitalize">{String(mentor.domain || '').replace('_', ' ')}</span>
               </div>
             )}
           </div>
+
+          {(mentor.services?.video || mentor.services?.audio) && (
+            <div className="mt-5 pt-5 border-t border-gray-100">
+              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-3">Available Services</p>
+              <div className="flex gap-2">
+                {mentor.services?.video && (
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-50 text-green-700 text-xs font-medium">
+                    <Video size={13} /> Video Call
+                  </div>
+                )}
+                {mentor.services?.audio && (
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-xs font-medium">
+                    <Mic size={13} /> Audio Call
+                  </div>
+                )}
+                {mentor.services?.chat && (
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-50 text-purple-700 text-xs font-medium">
+                    <MessageSquare size={13} /> Personal Chat
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {mentor.legacyEducation && mentor.legacyEducation.length > 0 && (
+            <div className="mt-5 pt-5 border-t border-gray-100">
+              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-3">Education History</p>
+              <div className="space-y-3">
+                {mentor.legacyEducation.map((edu, i) => (
+                  <div key={i} className="flex gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0 text-indigo-600">
+                      <GraduationCap size={14} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-gray-900">{edu.institutionName || edu.institution || 'Other Institution'}</p>
+                      <p className="text-[11px] text-gray-500">{edu.degree} · {edu.year || 'N/A'}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {mentor.notes && (
             <div className="mt-5">
@@ -202,16 +255,23 @@ type ViewMode = 'table' | 'pipeline'
 export default function MentorsPage() {
   const [search, setSearch]         = useState('')
   const [stageFilter, setStage]     = useState<MentorStage | 'all'>('all')
+  const [domainFilter, setDomain]   = useState<string>('all')
+  const [dataSource, setDataSource] = useState<'live' | 'legacy'>('live')
   const [view, setView]             = useState<ViewMode>('table')
   const [addOpen, setAddOpen]       = useState(false)
   const [selected, setSelected]     = useState<Mentor | undefined>()
   const [editing, setEditing]       = useState<Mentor | undefined>()
 
-  const { data: mentors = [], isLoading, refetch } = useGetMentorsQuery()
+  const { data: liveMentors = [], isLoading: liveLoading, refetch } = useGetMentorsQuery()
+  const { data: legacyMentors = [], isLoading: legacyLoading, error: legacyError } = useGetLegacyMentorsQuery(undefined, { skip: dataSource === 'live' })
+  
+  const mentors = dataSource === 'live' ? liveMentors : legacyMentors
+  const isLoading = dataSource === 'live' ? liveLoading : legacyLoading
   const [updateStage] = useUpdateMentorStageMutation()
 
   const filtered = mentors.filter(m => {
     if (stageFilter !== 'all' && m.stage !== stageFilter) return false
+    if (domainFilter !== 'all' && m.domain !== domainFilter) return false
     if (search) {
       const s = search.toLowerCase()
       return m.name.toLowerCase().includes(s) ||
@@ -247,6 +307,12 @@ export default function MentorsPage() {
         <div className="flex items-center gap-2">
           {/* View toggle */}
           <div className="flex bg-gray-100 rounded-lg p-0.5 gap-0.5">
+            <select className="bg-transparent text-xs font-medium px-2 py-1 outline-none text-gray-500 border-r border-gray-200 mr-0.5"
+              value={domainFilter} onChange={e => setDomain(e.target.value)}>
+              <option value="all">All Domains</option>
+              {['SWE','Product','Data','Design','Finance','Core Engineering','Marketing','Operations','Other']
+                .map(d => <option key={d} value={d.toLowerCase().replace(' ', '_')}>{d}</option>)}
+            </select>
             {([['table', List], ['pipeline', LayoutGrid]] as [ViewMode, any][]).map(([v, Icon]) => (
               <button key={v} onClick={() => setView(v)}
                 className={cn('p-1.5 rounded-md transition-all', view === v ? 'bg-white shadow-sm text-gray-900' : 'text-gray-400 hover:text-gray-600')}>
@@ -280,6 +346,29 @@ export default function MentorsPage() {
           )
         })}
       </div>
+      
+      {/* Data Source Toggle */}
+      <div className="flex border-b border-gray-100 mb-5">
+        {[
+          { key: 'live',   label: `Current (PostgreSQL)`, count: liveMentors.length },
+          { key: 'legacy', label: `Archive (MongoDB)`,     count: legacyMentors.length || '?' }
+        ].map(t => (
+          <button key={t.key} onClick={() => setDataSource(t.key as any)}
+            className={cn('px-5 py-2.5 text-xs font-semibold transition-all border-b-2',
+              dataSource === t.key ? 'text-blue-600 border-blue-600 bg-blue-50/30' : 'text-gray-400 border-transparent hover:text-gray-600'
+            )}>
+            {t.label} <span className="ml-1 opacity-60">[{t.count}]</span>
+          </button>
+        ))}
+      </div>
+      
+      {dataSource === 'legacy' && legacyError && (
+        <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg mb-5 text-sm">
+          <p className="font-bold">Error loading Legacy Data:</p>
+          <pre className="mt-1 overflow-auto whitespace-pre-wrap">{JSON.stringify(legacyError, null, 2)}</pre>
+          <p className="mt-2 text-xs opacity-70">Make sure your MongoDB backend is running at <code>/api/atyant/mentors</code></p>
+        </div>
+      )}
 
       {isLoading ? <div className="flex justify-center py-16"><Spinner /></div> :
        filtered.length === 0 ? <Empty title="No mentors found" description="Try a different search or stage filter" /> : (
@@ -291,7 +380,7 @@ export default function MentorsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-100 bg-gray-50/50">
-                    {['Name', 'Company', 'Domain', 'Stage', 'Source', 'Added', ''].map(h => (
+                    {['Name', 'Company', 'Domain', 'Stage', 'Services', 'Added', ''].map(h => (
                       <th key={h} className="text-left px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
                     ))}
                   </tr>
@@ -312,11 +401,18 @@ export default function MentorsPage() {
                           </div>
                         </td>
                         <td className="px-4 py-3 text-xs text-gray-600">{m.company ?? '—'}</td>
-                        <td className="px-4 py-3 text-xs text-gray-500 capitalize">{m.domain?.replace('_', ' ') ?? '—'}</td>
+                        <td className="px-4 py-3 text-xs text-gray-500 capitalize">{m.domain ? String(m.domain).replace('_', ' ') : '—'}</td>
                         <td className="px-4 py-3">
                           {stage && <Badge bgColor={stage.bgColor} textColor={stage.textColor} color={stage.color}>{stage.label}</Badge>}
                         </td>
-                        <td className="px-4 py-3 text-xs text-gray-500 capitalize">{m.source?.replace('_', ' ') ?? '—'}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex gap-2">
+                            {m.services?.video && <Video size={14} className="text-green-500" title="Video Call" />}
+                            {m.services?.audio && <Mic size={14} className="text-blue-500" title="Audio Call" />}
+                            {m.services?.chat && <MessageSquare size={14} className="text-purple-500" title="Personal Chat" />}
+                            {!m.services?.video && !m.services?.audio && !m.services?.chat && <span className="text-gray-300">—</span>}
+                          </div>
+                        </td>
                         <td className="px-4 py-3 text-xs text-gray-400">{formatRelative(m.createdAt)}</td>
                         <td className="px-4 py-3">
                           <ChevronRight size={14} className="text-gray-300" />

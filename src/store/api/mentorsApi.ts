@@ -7,6 +7,47 @@ export const mentorsApi = baseApi.injectEndpoints({
       query: (params) => ({ url: '/mentors', params: params || {} }),
       providesTags: ['Mentor'],
     }),
+    getLegacyMentors: b.query<Mentor[], void>({
+      query: () => '/atyant/mentors?limit=1000',
+      transformResponse: (response: any) => {
+        const rawData = Array.isArray(response) ? response : (response?.data || response?.mentors || [])
+        return rawData.map((m: any) => {
+          // Comprehensive name extraction
+          const name = m.name || m.fullName || m.displayName || m.username || 
+                 m.profile?.name || m.profile?.fullName || 
+                 (m.firstName ? `${m.firstName} ${m.lastName || ''}`.trim() : null) || 
+                 m.email?.split('@')[0] || 'Unknown'
+          
+          // College/Company extraction
+          const college = m.education?.[0]?.institutionName || m.education?.[0]?.institution || m.college || m.company || null
+          
+          // Services Mapping (Optimized for new backend response)
+          const s = m.services || []
+          const vCall = s.includes('video-call') || s.includes('video_call') || m.serviceType === 'video-call'
+          const aCall = s.includes('audio-call') || s.includes('audio_call') || m.serviceType === 'audio-call'
+          const pChat = s.includes('chat') || s.includes('personal-chat') || m.serviceType === 'chat'
+
+          return {
+            id: m._id || m.id || String(Math.random()),
+            name,
+            email: m.email || '',
+            phone: m.phone || null,
+            linkedin: m.linkedin || null,
+            company: college,
+            domain: (m.companyDomain || m.expertise || m.domain || 'other') as any,
+            source: 'legacy_mongodb',
+            stage: 'live',
+            status: 'active',
+            notes: m.notes || '',
+            legacyEducation: m.education,
+            services: { video: vCall, audio: aCall, chat: pChat },
+            createdAt: m.createdAt || m.lastActive || new Date().toISOString(),
+            updatedAt: m.updatedAt || new Date().toISOString(),
+          }
+        })
+      },
+      providesTags: ['Mentor'],
+    }),
     getMentor: b.query<Mentor, string>({
       query: (id) => `/mentors/${id}`,
       providesTags: (_r, _e, id) => [{ type: 'Mentor', id }],
@@ -40,7 +81,7 @@ export const mentorsApi = baseApi.injectEndpoints({
 })
 
 export const {
-  useGetMentorsQuery, useGetMentorQuery, useCreateMentorMutation,
+  useGetMentorsQuery, useGetLegacyMentorsQuery, useGetMentorQuery, useCreateMentorMutation,
   useUpdateMentorMutation, useUpdateMentorStageMutation,
   useAssignMentorMutation, useAddMentorNoteMutation, useDeleteMentorMutation,
 } = mentorsApi
