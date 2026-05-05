@@ -1,14 +1,31 @@
-// ── Auth ─────────────────────────────────────────────────────
-export type UserRole = 'super_admin' | 'admin' | 'sales' | 'content' | 'outreach' | 'viewer'
-export type UserStatus = 'active' | 'deactivated'
+// ── Enums ─────────────────────────────────────────────────────────────
+export type UserRole = 'SUPER_ADMIN' | 'MANAGER' | 'INTERN'
+export type Squad = 'TECH' | 'OUTREACH' | 'CONTENT' | 'PRODUCT' | 'HR_DESIGN'
+export type UserStatus = 'ACTIVE' | 'INACTIVE' | 'PROBATION' | 'ALUMNI'
+export type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'REVIEW' | 'DONE' | 'BLOCKED'
+export type OutreachType = 'MENTOR' | 'STUDENT'
+export type Channel = 'WHATSAPP' | 'LINKEDIN' | 'INSTAGRAM' | 'EMAIL'
+export type OutreachStatus = 'NOT_CONTACTED' | 'CONTACTED' | 'INTERESTED' | 'SIGNED_UP' | 'REJECTED'
+export type ContentType = 'LINKEDIN_POST' | 'INSTAGRAM_REEL' | 'BLOG' | 'CAROUSEL' | 'VIDEO'
+export type ContentStatus = 'DRAFT' | 'REVIEW' | 'APPROVED' | 'PUBLISHED' | 'REJECTED'
 
+// ── Auth ─────────────────────────────────────────────────────
 export interface AuthUser {
   id: string
   name: string
   email: string
+  phone?: string | null
   role: UserRole
+  squad?: Squad | null
+  college?: string | null
+  yearOfStudy?: number | null
   status: UserStatus
+  lorEligible: boolean
+  managerId?: string | null
   avatarUrl?: string | null
+  joinDate: string
+  createdAt: string
 }
 
 export interface AuthState {
@@ -34,8 +51,6 @@ export type MentorDomain =
   | 'swe' | 'product' | 'data' | 'design' | 'finance'
   | 'core_engineering' | 'marketing' | 'operations' | 'other'
 
-export type MentorStatus = 'active' | 'inactive' | 'blacklisted'
-
 export interface Mentor {
   id: string
   name: string
@@ -44,17 +59,15 @@ export interface Mentor {
   linkedin: string | null
   company: string | null
   domain: MentorDomain | null
+  squad?: Squad | null
   source: string | null
   stage: MentorStage
-  status: MentorStatus
+  status: 'active' | 'inactive' | 'blacklisted'
   notes: string | null
   assignedToId: string | null
-  assignedTo: AuthUser | null
+  assignedTo?: AuthUser | null
   createdAt: string
   updatedAt: string
-  // Legacy specific
-  legacyEducation?: any[]
-  services?: { video: boolean; audio: boolean; chat: boolean }
 }
 
 // ── Student ──────────────────────────────────────────────────
@@ -66,10 +79,11 @@ export interface Student {
   id: string
   name: string
   email: string
-  parentName?: string | null
   phone?: string | null
-  grade?: string | null
-  source?: string | null
+  collegeName?: string | null
+  branch?: string | null
+  graduationYear?: number | null
+  squad?: Squad | null
   stage: StudentStage
   assignedToId?: string | null
   assignedTo?: AuthUser | null
@@ -78,45 +92,71 @@ export interface Student {
   updatedAt: string
 }
 
-// ── Session ──────────────────────────────────────────────────
-export type SessionStatus = 'scheduled' | 'completed' | 'cancelled' | 'no_show'
-export type SessionType = 'trial' | 'regular' | 'makeup'
-export type SessionFormat = 'online' | 'offline'
-
-export interface Session {
-  id: string
-  studentId: string
-  mentorId: string
-  student?: Student
-  mentor?: Mentor
-  type: SessionType
-  format: SessionFormat
-  status: SessionStatus
-  scheduledAt: string
-  durationMin: number
-  meetLink?: string | null
-  rating?: number | null
-  notes?: string | null
-  createdAt: string
-}
 
 // ── Task ─────────────────────────────────────────────────────
-export type TaskStatus = 'todo' | 'in_progress' | 'done'
-export type TaskPriority = 'low' | 'medium' | 'high'
-
 export interface Task {
   id: string
   title: string
   description?: string | null
+  squad: Squad
+  assignedById: string
+  assignedBy?: AuthUser
+  assignedToId: string
+  assignedTo?: AuthUser
+  priority: Priority
   status: TaskStatus
-  priority: TaskPriority
-  assignedToId?: string | null
-  assignedTo?: AuthUser | null
-  mentorId?: string | null
-  studentId?: string | null
-  dueAt?: string | null
-  completedAt?: string | null
-  createdById: string
+  dueDate: string
+  proofLink?: string | null
+  feedback?: string | null
+  points: number
+  createdAt: string
+  updatedAt: string
+}
+
+// ── Performance ──────────────────────────────────────────────
+export interface Performance {
+  id: string
+  internId: string
+  intern?: AuthUser
+  month: number
+  year: number
+  tasksAssigned: number
+  tasksCompleted: number
+  tasksMissed: number
+  managerRating?: number | null
+  totalScore?: number | null
+  lorScore?: number | null
+  createdAt: string
+}
+
+// ── Outreach ─────────────────────────────────────────────────
+export interface OutreachContact {
+  id: string
+  type: OutreachType
+  name: string
+  college?: string | null
+  linkedinUrl?: string | null
+  contactedById: string
+  contactedBy?: AuthUser
+  channel: Channel
+  status: OutreachStatus
+  followupDate?: string | null
+  notes?: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+// ── Content ──────────────────────────────────────────────────
+export interface ContentPiece {
+  id: string
+  title: string
+  type: ContentType
+  assignedToId: string
+  assignedTo?: AuthUser
+  status: ContentStatus
+  platform?: string | null
+  publishedUrl?: string | null
+  dueDate: string
   createdAt: string
   updatedAt: string
 }
@@ -129,7 +169,6 @@ export interface DashboardStats {
   activeStudents: number
   sessionsThisWeek: number
   pendingTasks: number
-  conversionRate: number
   recentActivity: ActivityItem[]
 }
 
@@ -145,12 +184,13 @@ export interface ActivityItem {
 export interface Notification {
   id: string
   title: string
-  body: string
+  message: string
   type: string
   isRead: boolean
   createdAt: string
 }
 
-// ── Pagination ───────────────────────────────────────────────
+// ── API Helpers ──────────────────────────────────────────────
 export interface PaginationMeta { total: number; page: number; limit: number; hasMore: boolean }
 export interface ApiResponse<T> { data: T; meta?: PaginationMeta }
+

@@ -53,26 +53,35 @@ export function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-2 overflow-y-auto">
-        {NAV_ITEMS.map((section) => (
-          <div key={section.section} className="mb-4">
-            <div className="px-3 py-1 text-[10px] font-semibold text-white/30 uppercase tracking-widest">{section.section}</div>
-            <div className="space-y-0.5">
-              {section.items.map((item) => {
-                const Icon = ICON_MAP[item.icon]
-                const active = isActive(item.href)
-                return (
-                  <Link key={item.href} href={item.href}
-                    className={cn('flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-all duration-150',
-                      active ? 'bg-blue-600 text-white font-medium' : 'text-white/60 hover:text-white hover:bg-white/8')}>
-                    {Icon && <Icon size={15} className="flex-shrink-0" />}
-                    <span className="flex-1">{item.label}</span>
-                  </Link>
-                )
-              })}
+        {NAV_ITEMS.map((section) => {
+          const visibleItems = section.items.filter(item => 
+            !item.roles || (user && item.roles.includes(user.role))
+          )
+          
+          if (visibleItems.length === 0) return null
+
+          return (
+            <div key={section.section} className="mb-4">
+              <div className="px-3 py-1 text-[10px] font-semibold text-white/30 uppercase tracking-widest">{section.section}</div>
+              <div className="space-y-0.5">
+                {visibleItems.map((item) => {
+                  const Icon = ICON_MAP[item.icon]
+                  const active = isActive(item.href)
+                  return (
+                    <Link key={item.href} href={item.href}
+                      className={cn('flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-all duration-150',
+                        active ? 'bg-primary text-white font-medium' : 'text-white/60 hover:text-white hover:bg-white/8')}>
+                      {Icon && <Icon size={15} className="flex-shrink-0" />}
+                      <span className="flex-1">{item.label}</span>
+                    </Link>
+                  )
+                })}
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </nav>
+
 
       {/* User footer */}
       <div className="border-t border-white/10 p-3">

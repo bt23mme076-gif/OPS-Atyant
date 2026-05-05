@@ -11,11 +11,15 @@ import { formatRelative, cn } from '@/lib/utils'
 import type { MentorStage, Mentor } from '@/types'
 import toast from 'react-hot-toast'
 
+import { useCurrentUser } from '@/store/hooks'
+import { ROLES, SQUADS } from '@/lib/constants'
+
 const STAGE_MAP = Object.fromEntries(MENTOR_STAGES.map(s => [s.key, s]))
 
 // ── Add/Edit Modal ────────────────────────────────────────────
 function MentorModal({ open, onClose, mentor }: { open: boolean; onClose: () => void; mentor?: Mentor }) {
   const isEdit = !!mentor
+  const user = useCurrentUser()
   const [create, { isLoading: creating }] = useCreateMentorMutation()
   const [update, { isLoading: updating }] = useUpdateMentorMutation()
 
@@ -26,6 +30,7 @@ function MentorModal({ open, onClose, mentor }: { open: boolean; onClose: () => 
     linkedin: mentor?.linkedin ?? '',
     company:  mentor?.company  ?? '',
     domain:   mentor?.domain   ?? '',
+    squad:    mentor?.squad    ?? user?.squad ?? '',
     source:   mentor?.source   ?? '',
     status:   mentor?.status   ?? 'active',
     notes:    mentor?.notes    ?? '',
@@ -71,6 +76,15 @@ function MentorModal({ open, onClose, mentor }: { open: boolean; onClose: () => 
           </select>
         </div>
         <div>
+          <label className="label block mb-1.5">Squad</label>
+          <select className="input" value={form.squad} onChange={f('squad')}>
+            <option value="">Select squad</option>
+            {Object.entries(SQUADS).map(([k, v]) => (
+              <option key={k} value={v}>{k.replace('_', ' ')}</option>
+            ))}
+          </select>
+        </div>
+        <div>
           <label className="label block mb-1.5">Source</label>
           <select className="input" value={form.source} onChange={f('source')}>
             <option value="">Select source</option>
@@ -102,6 +116,7 @@ function MentorModal({ open, onClose, mentor }: { open: boolean; onClose: () => 
     </Modal>
   )
 }
+
 
 // ── Mentor Detail Drawer ──────────────────────────────────────
 function MentorDrawer({ mentor, onClose, onEdit }: { mentor: Mentor; onClose: () => void; onEdit: () => void }) {
@@ -253,6 +268,7 @@ function MentorDrawer({ mentor, onClose, onEdit }: { mentor: Mentor; onClose: ()
 type ViewMode = 'table' | 'pipeline'
 
 export default function MentorsPage() {
+  const user = useCurrentUser()
   const [search, setSearch]         = useState('')
   const [stageFilter, setStage]     = useState<MentorStage | 'all'>('all')
   const [domainFilter, setDomain]   = useState<string>('all')
@@ -270,6 +286,9 @@ export default function MentorsPage() {
   const [updateStage] = useUpdateMentorStageMutation()
 
   const filtered = mentors.filter(m => {
+    // RBAC: Manager can only see their squad
+    if (user?.role === ROLES.MANAGER && m.squad !== user.squad) return false
+    
     if (stageFilter !== 'all' && (m.stage as string) !== stageFilter) return false
     if (domainFilter !== 'all' && (m.domain as string) !== domainFilter) return false
     if (search) {
@@ -280,6 +299,7 @@ export default function MentorsPage() {
     }
     return true
   })
+
 
   return (
     <div>

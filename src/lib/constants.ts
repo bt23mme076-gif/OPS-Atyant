@@ -1,6 +1,27 @@
 export const TOKEN_COOKIE = 'atyant_token'
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api'
 
+export const ROLES = {
+  SUPER_ADMIN: 'SUPER_ADMIN',
+  MANAGER: 'MANAGER',
+  INTERN: 'INTERN',
+} as const
+
+export const SQUADS = {
+  TECH: 'TECH',
+  OUTREACH: 'OUTREACH',
+  CONTENT: 'CONTENT',
+  PRODUCT: 'PRODUCT',
+  HR_DESIGN: 'HR_DESIGN',
+} as const
+
+export const USER_STATUS = {
+  ACTIVE: 'ACTIVE',
+  INACTIVE: 'INACTIVE',
+  PROBATION: 'PROBATION',
+  ALUMNI: 'ALUMNI',
+} as const
+
 export const MENTOR_STAGES = [
   { key: 'identified', label: 'Identified', color: '#6366F1', bgColor: '#EEF2FF', textColor: '#4338CA' },
   { key: 'outreach_sent', label: 'Outreach Sent', color: '#8B5CF6', bgColor: '#F5F3FF', textColor: '#7C3AED' },
@@ -25,33 +46,46 @@ export const STUDENT_STAGES = [
 ] as const
 
 export const TASK_PRIORITIES = [
-  { key: 'high', label: 'High', color: '#A16207', bgColor: '#FEFCE8', dotColor: '#EAB308' },
-  { key: 'medium', label: 'Medium', color: '#1D4ED8', bgColor: '#EFF6FF', dotColor: '#3B82F6' },
-  { key: 'low', label: 'Low', color: '#4B5563', bgColor: '#F9FAFB', dotColor: '#9CA3AF' },
+  { key: 'URGENT', label: 'Urgent', color: '#DC2626', bgColor: '#FEF2F2', dotColor: '#EF4444' },
+  { key: 'HIGH', label: 'High', color: '#A16207', bgColor: '#FEFCE8', dotColor: '#EAB308' },
+  { key: 'MEDIUM', label: 'Medium', color: '#1D4ED8', bgColor: '#EFF6FF', dotColor: '#3B82F6' },
+  { key: 'LOW', label: 'Low', color: '#4B5563', bgColor: '#F9FAFB', dotColor: '#9CA3AF' },
+] as const
+
+export const TASK_STATUSES = [
+  { key: 'TODO', label: 'To Do', color: '#6B7280' },
+  { key: 'IN_PROGRESS', label: 'In Progress', color: '#3B82F6' },
+  { key: 'REVIEW', label: 'Review', color: '#8B5CF6' },
+  { key: 'DONE', label: 'Done', color: '#10B981' },
+  { key: 'BLOCKED', label: 'Blocked', color: '#EF4444' },
 ] as const
 
 export const NAV_ITEMS = [
   {
     section: 'Overview', items: [
-      { href: '/dashboard', label: 'Dashboard', icon: 'LayoutDashboard' },
+      { href: '/dashboard', label: 'Dashboard', icon: 'LayoutDashboard', roles: [ROLES.SUPER_ADMIN, ROLES.MANAGER, ROLES.INTERN] },
     ]
   },
   {
     section: 'Pipeline', items: [
-      { href: '/mentors', label: 'Mentors', icon: 'Users' },
-      { href: '/students', label: 'Students', icon: 'GraduationCap' },
-      { href: '/sessions', label: 'Sessions', icon: 'Video' },
+      { href: '/mentors', label: 'Mentors', icon: 'Users', roles: [ROLES.SUPER_ADMIN, ROLES.MANAGER] },
+      { href: '/students', label: 'Students', icon: 'GraduationCap', roles: [ROLES.SUPER_ADMIN, ROLES.MANAGER] },
+      { href: '/sessions', label: 'Sessions', icon: 'Video', roles: [ROLES.SUPER_ADMIN, ROLES.MANAGER] },
     ]
   },
   {
-    section: 'Work', items: [
-      { href: '/tasks', label: 'Tasks', icon: 'CheckSquare' },
+    section: 'Internal Ops', items: [
+      { href: '/tasks', label: 'Tasks', icon: 'CheckSquare', roles: [ROLES.SUPER_ADMIN, ROLES.MANAGER, ROLES.INTERN] },
+      { href: '/outreach', label: 'Outreach', icon: 'Target', roles: [ROLES.SUPER_ADMIN, ROLES.MANAGER] },
+      { href: '/content', label: 'Content', icon: 'PenTool', roles: [ROLES.SUPER_ADMIN, ROLES.MANAGER] },
     ]
   },
   {
     section: 'Team', items: [
-      { href: '/team', label: 'Team', icon: 'Shield' },
-      { href: '/settings', label: 'Settings', icon: 'Settings' },
+      { href: '/team', label: 'Team', icon: 'Shield', roles: [ROLES.SUPER_ADMIN] },
+      { href: '/settings', label: 'Settings', icon: 'Settings', roles: [ROLES.SUPER_ADMIN, ROLES.MANAGER, ROLES.INTERN] },
     ]
   },
 ]
+
+

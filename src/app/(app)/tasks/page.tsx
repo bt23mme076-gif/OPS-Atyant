@@ -10,18 +10,20 @@ import { formatDue, formatDate, cn } from '@/lib/utils'
 import type { TaskStatus, Task } from '@/types'
 import toast from 'react-hot-toast'
 
+import { TASK_PRIORITIES, TASK_STATUSES, ROLES, SQUADS } from '@/lib/constants'
+
 const PRIORITY_MAP = Object.fromEntries(TASK_PRIORITIES.map(p => [p.key, p]))
 
-const COLUMNS: { key: TaskStatus; label: string; color: string }[] = [
-  { key: 'todo',        label: 'To Do',       color: '#6B7280' },
-  { key: 'in_progress', label: 'In Progress', color: '#2563EB' },
-  { key: 'done',        label: 'Done',        color: '#16A34A' },
-]
+const COLUMNS = TASK_STATUSES.map(s => ({
+  ...s,
+  bgColor: s.color === '#6B7280' ? '#F3F4F6' : `${s.color}10`
+}))
 
 function TaskModal({
   open, onClose, task,
 }: { open: boolean; onClose: () => void; task?: Task }) {
   const isEdit = !!task
+  const user = useCurrentUser()
   const [create, { isLoading: creating }] = useCreateTaskMutation()
   const [update, { isLoading: updating }] = useUpdateTaskMutation()
   const { data: users = [] } = useGetUsersQuery()
@@ -29,11 +31,22 @@ function TaskModal({
   const [form, setForm] = useState({
     title:        task?.title        ?? '',
     description:  task?.description  ?? '',
-    priority:     task?.priority     ?? 'medium',
+    priority:     task?.priority     ?? 'MEDIUM',
+    squad:        (task as any)?.squad ?? user?.squad ?? 'TECH',
     assignedToId: (task as any)?.assignedToId ?? '',
-    dueAt:        task?.dueAt ? new Date(task.dueAt).toISOString().slice(0,16) : '',
+    dueDate:      task?.dueDate ? new Date(task.dueDate).toISOString().slice(0,16) : '',
+    proofLink:    (task as any)?.proofLink ?? '',
+    feedback:     (task as any)?.feedback  ?? '',
   })
   const f = (k: string) => (e: React.ChangeEvent<any>) => setForm(p => ({ ...p, [k]: e.target.value }))
+
+  // Filter users to only show interns in the same squad if manager
+  const assignableUsers = users.filter(u => {
+    if (user?.role === ROLES.MANAGER) {
+      return u.role === ROLES.INTERN && u.squad === user.squad
+    }
+    return true
+  })
 
   async function submit() {
     if (!form.title.trim()) return
@@ -42,7 +55,11 @@ function TaskModal({
         await update({ id: task!.id, data: form }).unwrap()
         toast.success('Task updated')
       } else {
-        await create({ ...form, status: 'todo' }).unwrap()
+        await create({ 
+          ...form, 
+          status: 'TODO',
+          assignedById: user?.id 
+        }).unwrap()
         toast.success('Task created')
       }
       onClose()
@@ -50,8 +67,8 @@ function TaskModal({
   }
 
   return (
-    <Modal open={open} onClose={onClose} title={isEdit ? 'Edit Task' : 'New Task'}>
-      <div className="space-y-3">
+    <Modal open={open} onClose={onClose} title={isEdit ? 'Edit Task' : 'New Task'} size="lg">
+      <div className="space-y-4">
         <div>
           <label className="label block mb-1.5">Title *</label>
           <input className="input" value={form.title} onChange={f('title')}
@@ -64,24 +81,53 @@ function TaskModal({
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
+            <label className="label block mb-1.5">Squad</label>
+            <select className="input" value={form.squad} onChange={f('squad')}>
+              {Object.entries(SQUADS).map(([k, v]) => (
+                <option key={k} value={v}>{k.replace('_', ' ')}</option>
+              ))}
+            </select>
+          </div>
+          <div>
             <label className="label block mb-1.5">Priority</label>
             <select className="input" value={form.priority} onChange={f('priority')}>
               {TASK_PRIORITIES.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
             </select>
           </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="label block mb-1.5">Assign to</label>
             <select className="input" value={form.assignedToId} onChange={f('assignedToId')}>
               <option value="">Unassigned</option>
-              {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+              {assignableUsers.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
             </select>
           </div>
+          <div>
+            <label className="label block mb-1.5">Due date</label>
+            <input className="input" type="datetime-local" value={form.dueDate} onChange={f('dueDate')} />
+          </div>
         </div>
-        <div>
-          <label className="label block mb-1.5">Due date</label>
-          <input className="input" type="datetime-local" value={form.dueAt} onChange={f('dueAt')} />
-        </div>
-        <div className="flex justify-end gap-2 pt-2">
+
+        {isEdit && (
+          <div className="pt-4 border-t border-gray-100 space-y-4">
+            <div>
+              <label className="label block mb-1.5 text-purple-600 font-bold">Proof Link (Intern)</label>
+              <input className="input border-purple-100 focus:border-purple-300" value={form.proofLink} onChange={f('proofLink')}
+                placeholder="https://..." disabled={user?.role === ROLES.MANAGER} />
+            </div>
+            {(user?.role === ROLES.MANAGER || user?.role === ROLES.SUPER_ADMIN || form.feedback) && (
+              <div>
+                <label className="label block mb-1.5 text-blue-600 font-bold">Manager Feedback</label>
+                <textarea className="input border-blue-100 focus:border-blue-300 resize-none" rows={2} 
+                  value={form.feedback} onChange={f('feedback')}
+                  placeholder="Approve/Reject reason..." disabled={user?.role === ROLES.INTERN} />
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex justify-end gap-2 pt-4 border-t border-gray-100">
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
           <Button variant="primary" loading={creating || updating} onClick={submit}>
             {isEdit ? 'Save Changes' : 'Create Task'}
@@ -99,7 +145,6 @@ function TaskCard({ task, onEdit, onMove, onDelete }: {
   onDelete: () => void
 }) {
   const priority = PRIORITY_MAP[task.priority]
-  const due = task.dueAt ? formatDue(task.dueAt) : null
   const [menuOpen, setMenuOpen] = useState(false)
 
   return (
@@ -110,7 +155,6 @@ function TaskCard({ task, onEdit, onMove, onDelete }: {
         {priority && (
           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded flex-shrink-0"
             style={{ background: priority.bgColor, color: priority.color }}>
-            <Flag size={9} className="inline mr-0.5" />
             {priority.label}
           </span>
         )}
@@ -120,11 +164,14 @@ function TaskCard({ task, onEdit, onMove, onDelete }: {
             <MoreHorizontal size={14} />
           </button>
           {menuOpen && (
-            <div className="absolute right-0 top-5 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-10 min-w-[130px]"
+            <div className="absolute right-0 top-5 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-10 min-w-[140px]"
               onClick={e => e.stopPropagation()}>
-              {task.status !== 'todo'        && <button className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50" onClick={() => { onMove('todo'); setMenuOpen(false) }}>Move to To Do</button>}
-              {task.status !== 'in_progress' && <button className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50" onClick={() => { onMove('in_progress'); setMenuOpen(false) }}>Move to In Progress</button>}
-              {task.status !== 'done'        && <button className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50" onClick={() => { onMove('done'); setMenuOpen(false) }}>Mark Done</button>}
+              {TASK_STATUSES.filter(s => s.key !== task.status).map(s => (
+                <button key={s.key} className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50" 
+                  onClick={() => { onMove(s.key as TaskStatus); setMenuOpen(false) }}>
+                  Move to {s.label}
+                </button>
+              ))}
               <div className="border-t border-gray-100 my-1" />
               <button className="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50" onClick={() => { onDelete(); setMenuOpen(false) }}>Delete</button>
             </div>
@@ -133,31 +180,19 @@ function TaskCard({ task, onEdit, onMove, onDelete }: {
       </div>
 
       {/* Title */}
-      <p className={cn('text-sm font-medium leading-snug mb-2', task.status === 'done' && 'line-through text-gray-400')}>
-        {task.status === 'done'
-          ? <CheckCircle2 size={13} className="inline text-green-500 mr-1" />
-          : <Circle size={13} className="inline text-gray-300 mr-1" />
-        }
+      <p className={cn('text-sm font-medium leading-snug mb-2', task.status === 'DONE' && 'line-through text-gray-400')}>
         {task.title}
       </p>
 
-      {/* Description */}
-      {task.description && (
-        <p className="text-[11px] text-gray-500 mb-2 line-clamp-2 leading-relaxed">{task.description}</p>
-      )}
-
       {/* Footer */}
       <div className="flex items-center justify-between mt-1 gap-2">
-        {due ? (
-          <span className={cn('text-[10px] flex items-center gap-1', due.isOverdue ? 'text-red-500' : 'text-gray-400')}>
-            <Clock size={10} />
-            {due.label}
-          </span>
-        ) : <span />}
-        {(task as any).assignedTo && (
-          <span className="text-[10px] text-gray-400 flex items-center gap-1">
+        <span className="text-[10px] text-gray-400 flex items-center gap-1 uppercase font-bold tracking-tighter">
+          {task.squad}
+        </span>
+        {task.assignedTo && (
+          <span className="text-[10px] text-gray-500 font-medium flex items-center gap-1">
             <User size={10} />
-            {(task as any).assignedTo.name?.split(' ')[0]}
+            {task.assignedTo.name?.split(' ')[0]}
           </span>
         )}
       </div>
@@ -165,10 +200,11 @@ function TaskCard({ task, onEdit, onMove, onDelete }: {
   )
 }
 
+
 type ViewMode = 'board' | 'list' | 'mine'
 
 export default function TasksPage() {
-  const currentUser = useCurrentUser()
+  const user = useCurrentUser()
   const [view, setView]       = useState<ViewMode>('board')
   const [addOpen, setAddOpen] = useState(false)
   const [editTask, setEditTask] = useState<Task | undefined>()
@@ -178,7 +214,16 @@ export default function TasksPage() {
   const [updateTask] = useUpdateTaskMutation()
   const [deleteTask] = useDeleteTaskMutation()
 
-  const tasks = view === 'mine' ? myTasks : allTasks
+  // RBAC Filtering Logic
+  const tasks = (() => {
+    if (view === 'mine' || user?.role === ROLES.INTERN) {
+      return myTasks
+    }
+    if (user?.role === ROLES.MANAGER) {
+      return allTasks.filter(t => t.squad === user.squad)
+    }
+    return allTasks
+  })()
 
   async function moveTask(id: string, status: TaskStatus) {
     try { await updateTask({ id, data: { status } }).unwrap() }
@@ -191,8 +236,9 @@ export default function TasksPage() {
     catch { toast.error('Failed to delete') }
   }
 
-  const openCount = tasks.filter(t => t.status !== 'done').length
-  const doneCount = tasks.filter(t => t.status === 'done').length
+  const openCount = tasks.filter(t => t.status !== 'DONE').length
+  const doneCount = tasks.filter(t => t.status === 'DONE').length
+
 
   return (
     <div>
