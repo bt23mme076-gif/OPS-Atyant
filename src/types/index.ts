@@ -68,7 +68,11 @@ export interface Mentor {
   assignedTo?: AuthUser | null
   createdAt: string
   updatedAt: string
+  // Legacy specific
+  legacyEducation?: any[]
+  services?: { video: boolean; audio: boolean; chat: boolean }
 }
+
 
 // ── Student ──────────────────────────────────────────────────
 export type StudentStage =
