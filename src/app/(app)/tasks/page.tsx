@@ -5,7 +5,6 @@ import { useGetTasksQuery, useGetMyTasksQuery, useCreateTaskMutation, useUpdateT
 import { useGetUsersQuery } from '@/store/api/usersApi'
 import { useCurrentUser } from '@/store/hooks'
 import { Button, Modal, Spinner, Empty } from '@/components/ui'
-import { TASK_PRIORITIES } from '@/lib/constants'
 import { formatDue, formatDate, cn } from '@/lib/utils'
 import type { TaskStatus, Task } from '@/types'
 import toast from 'react-hot-toast'
