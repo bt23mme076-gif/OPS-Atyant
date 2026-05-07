@@ -30,7 +30,7 @@ export default function NotificationsPage() {
               <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${!n.isRead ? 'bg-blue-500' : 'bg-gray-200'}`} />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-900">{n.title}</p>
-                <p className="text-xs text-gray-500 mt-0.5">{n.body}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{n.message}</p>
                 <p className="text-[10px] text-gray-400 mt-1">{formatRelative(n.createdAt)}</p>
               </div>
               {!n.isRead && (
