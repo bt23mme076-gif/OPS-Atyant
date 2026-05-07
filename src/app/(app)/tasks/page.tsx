@@ -1,11 +1,11 @@
 'use client'
 import { useState } from 'react'
-import { Plus, RefreshCw, Calendar, User, Flag, CheckCircle2, Circle, Clock, MoreHorizontal } from 'lucide-react'
+import { Plus, RefreshCw, User, CheckCircle2, Circle, MoreHorizontal } from 'lucide-react'
 import { useGetTasksQuery, useGetMyTasksQuery, useCreateTaskMutation, useUpdateTaskMutation, useDeleteTaskMutation } from '@/store/api/tasksApi'
 import { useGetUsersQuery } from '@/store/api/usersApi'
 import { useCurrentUser } from '@/store/hooks'
 import { Button, Modal, Spinner, Empty } from '@/components/ui'
-import { formatDue, formatDate, cn } from '@/lib/utils'
+import { formatDue, cn } from '@/lib/utils'
 import type { TaskStatus, Task } from '@/types'
 import toast from 'react-hot-toast'
 
@@ -39,7 +39,6 @@ function TaskModal({
   })
   const f = (k: string) => (e: React.ChangeEvent<any>) => setForm(p => ({ ...p, [k]: e.target.value }))
 
-  // Filter users to only show interns in the same squad if manager
   const assignableUsers = users.filter(u => {
     if (user?.role === ROLES.MANAGER) {
       return u.role === ROLES.INTERN && u.squad === user.squad
@@ -69,18 +68,18 @@ function TaskModal({
     <Modal open={open} onClose={onClose} title={isEdit ? 'Edit Task' : 'New Task'} size="lg">
       <div className="space-y-4">
         <div>
-          <label className="label block mb-1.5">Title *</label>
+          <label className="label block mb-1.5 text-xs font-semibold uppercase tracking-wider text-gray-500">Title *</label>
           <input className="input" value={form.title} onChange={f('title')}
             placeholder="What needs to be done?" autoFocus />
         </div>
         <div>
-          <label className="label block mb-1.5">Description</label>
+          <label className="label block mb-1.5 text-xs font-semibold uppercase tracking-wider text-gray-500">Description</label>
           <textarea className="input resize-none" rows={3} value={form.description}
             onChange={f('description')} placeholder="Optional details or context" />
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="label block mb-1.5">Squad</label>
+            <label className="label block mb-1.5 text-xs font-semibold uppercase tracking-wider text-gray-500">Squad</label>
             <select className="input" value={form.squad} onChange={f('squad')}>
               {Object.entries(SQUADS).map(([k, v]) => (
                 <option key={k} value={v}>{k.replace('_', ' ')}</option>
@@ -88,22 +87,22 @@ function TaskModal({
             </select>
           </div>
           <div>
-            <label className="label block mb-1.5">Priority</label>
+            <label className="label block mb-1.5 text-xs font-semibold uppercase tracking-wider text-gray-500">Priority</label>
             <select className="input" value={form.priority} onChange={f('priority')}>
               {TASK_PRIORITIES.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
             </select>
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="label block mb-1.5">Assign to</label>
+            <label className="label block mb-1.5 text-xs font-semibold uppercase tracking-wider text-gray-500">Assign to</label>
             <select className="input" value={form.assignedToId} onChange={f('assignedToId')}>
               <option value="">Unassigned</option>
               {assignableUsers.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
             </select>
           </div>
           <div>
-            <label className="label block mb-1.5">Due date</label>
+            <label className="label block mb-1.5 text-xs font-semibold uppercase tracking-wider text-gray-500">Due date</label>
             <input className="input" type="datetime-local" value={form.dueDate} onChange={f('dueDate')} />
           </div>
         </div>
@@ -111,13 +110,13 @@ function TaskModal({
         {isEdit && (
           <div className="pt-4 border-t border-gray-100 space-y-4">
             <div>
-              <label className="label block mb-1.5 text-purple-600 font-bold">Proof Link (Intern)</label>
+              <label className="label block mb-1.5 text-xs font-bold text-purple-600 uppercase">Proof Link (Intern)</label>
               <input className="input border-purple-100 focus:border-purple-300" value={form.proofLink} onChange={f('proofLink')}
                 placeholder="https://..." disabled={user?.role === ROLES.MANAGER} />
             </div>
             {(user?.role === ROLES.MANAGER || user?.role === ROLES.SUPER_ADMIN || form.feedback) && (
               <div>
-                <label className="label block mb-1.5 text-blue-600 font-bold">Manager Feedback</label>
+                <label className="label block mb-1.5 text-xs font-bold text-blue-600 uppercase">Manager Feedback</label>
                 <textarea className="input border-blue-100 focus:border-blue-300 resize-none" rows={2} 
                   value={form.feedback} onChange={f('feedback')}
                   placeholder="Approve/Reject reason..." disabled={user?.role === ROLES.INTERN} />
@@ -149,7 +148,6 @@ function TaskCard({ task, onEdit, onMove, onDelete }: {
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm hover:shadow-md hover:border-gray-300 transition-all cursor-pointer group"
       onClick={onEdit}>
-      {/* Priority + menu */}
       <div className="flex items-start justify-between gap-2 mb-2">
         {priority && (
           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded flex-shrink-0"
@@ -178,12 +176,10 @@ function TaskCard({ task, onEdit, onMove, onDelete }: {
         </div>
       </div>
 
-      {/* Title */}
       <p className={cn('text-sm font-medium leading-snug mb-2', task.status === 'DONE' && 'line-through text-gray-400')}>
         {task.title}
       </p>
 
-      {/* Footer */}
       <div className="flex items-center justify-between mt-1 gap-2">
         <span className="text-[10px] text-gray-400 flex items-center gap-1 uppercase font-bold tracking-tighter">
           {task.squad}
@@ -199,7 +195,6 @@ function TaskCard({ task, onEdit, onMove, onDelete }: {
   )
 }
 
-
 type ViewMode = 'board' | 'list' | 'mine'
 
 export default function TasksPage() {
@@ -213,7 +208,6 @@ export default function TasksPage() {
   const [updateTask] = useUpdateTaskMutation()
   const [deleteTask] = useDeleteTaskMutation()
 
-  // RBAC Filtering Logic
   const tasks = (() => {
     if (view === 'mine' || user?.role === ROLES.INTERN) {
       return myTasks
@@ -238,33 +232,30 @@ export default function TasksPage() {
   const openCount = tasks.filter(t => t.status !== 'DONE').length
   const doneCount = tasks.filter(t => t.status === 'DONE').length
 
-
   return (
-    <div>
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+    <div className="max-w-[1200px] mx-auto">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-8">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Tasks</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            {openCount} open · {doneCount} done
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Tasks</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            {openCount} active tasks — {doneCount} completed
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="ghost" size="sm" onClick={() => refetch()}><RefreshCw size={13} /></Button>
-          <Button variant="primary" size="sm" onClick={() => setAddOpen(true)}><Plus size={13} /> New Task</Button>
+          <Button variant="ghost" size="sm" onClick={() => refetch()}><RefreshCw size={14} /></Button>
+          <Button variant="primary" size="sm" onClick={() => setAddOpen(true)}><Plus size={16} /> New Task</Button>
         </div>
       </div>
 
-      {/* View toggle + filters */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-5">
-        <div className="flex bg-gray-100 rounded-lg p-0.5 gap-0.5">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
+        <div className="flex bg-gray-100/80 p-1 rounded-xl gap-1">
           {([
             ['board', 'Board'],
             ['list',  'List'],
             ['mine',  'My Tasks'],
           ] as [ViewMode, string][]).map(([v, l]) => (
             <button key={v} onClick={() => setView(v)}
-              className={cn('px-3 py-1.5 text-xs font-medium rounded-md transition-all',
+              className={cn('px-4 py-2 text-xs font-semibold rounded-lg transition-all duration-200',
                 view === v ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700')}>
               {l}
             </button>
@@ -272,36 +263,29 @@ export default function TasksPage() {
         </div>
       </div>
 
-      {isLoading ? <div className="flex justify-center py-16"><Spinner /></div> : (
-
-        /* Board view */
+      {isLoading ? <div className="flex justify-center py-20"><Spinner /></div> : (
         view === 'board' || view === 'mine' ? (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
             {COLUMNS.map(col => {
               const colTasks = tasks.filter(t => t.status === col.key)
               return (
-                <div key={col.key} className="bg-gray-50 rounded-xl p-3">
-                  {/* Column header */}
-                  <div className="flex items-center justify-between mb-3 px-1">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full" style={{ background: col.color }} />
-                      <span className="text-xs font-semibold text-gray-700">{col.label}</span>
+                <div key={col.key} className="bg-gray-50/50 border border-gray-100 rounded-2xl p-4">
+                  <div className="flex items-center justify-between mb-4 px-1">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ background: col.color }} />
+                      <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">{col.label}</span>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[11px] text-gray-400 bg-white border border-gray-200 rounded-full px-2 py-0.5 font-medium">
-                        {colTasks.length}
-                      </span>
-                      <button onClick={() => setAddOpen(true)}
-                        className="text-gray-400 hover:text-gray-700 transition-colors p-0.5 hover:bg-white rounded">
-                        <Plus size={13} />
-                      </button>
-                    </div>
+                    <span className="text-[10px] font-bold text-gray-400 bg-white border border-gray-100 rounded-full px-2 py-0.5">
+                      {colTasks.length}
+                    </span>
                   </div>
 
-                  {/* Cards */}
-                  <div className="space-y-2 min-h-[100px]">
+                  <div className="space-y-3 min-h-[200px]">
                     {colTasks.length === 0 && (
-                      <p className="text-xs text-gray-400 text-center py-6">No tasks</p>
+                      <div className="flex flex-col items-center justify-center py-10 opacity-30">
+                        <div className="w-8 h-8 rounded-full border-2 border-dashed border-gray-400 mb-2" />
+                        <p className="text-[10px] font-bold uppercase tracking-widest">No tasks</p>
+                      </div>
                     )}
                     {colTasks.map(task => (
                       <TaskCard key={task.id} task={task}
@@ -315,69 +299,66 @@ export default function TasksPage() {
             })}
           </div>
         ) : (
-
-          /* List view */
           tasks.length === 0 ? <Empty title="No tasks yet" description="Create a task to get started" /> : (
-            <div className="card overflow-hidden">
+            <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-100 bg-gray-50/50">
                     {['Task', 'Priority', 'Assigned', 'Due', 'Status', ''].map(h => (
-                      <th key={h} className="text-left px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
+                      <th key={h} className="text-left px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">{h}</th>
                     ))}
                   </tr>
                 </thead>
-                <tbody>
-                  {tasks.map((task, i) => {
+                <tbody className="divide-y divide-gray-50">
+                  {tasks.map((task) => {
                     const priority = PRIORITY_MAP[task.priority]
-                    const due = task.dueAt ? formatDue(task.dueAt) : null
+                    const due = (task as any).dueDate ? formatDue((task as any).dueDate) : null
                     return (
                       <tr key={task.id}
-                        className={cn('border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer', i === tasks.length - 1 && 'border-0')}
+                        className="hover:bg-gray-50/80 transition-colors cursor-pointer group"
                         onClick={() => setEditTask(task)}>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            {task.status === 'done'
-                              ? <CheckCircle2 size={14} className="text-green-500 flex-shrink-0" />
-                              : <Circle size={14} className="text-gray-300 flex-shrink-0" />
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            {task.status === 'DONE'
+                              ? <CheckCircle2 size={16} className="text-green-500 flex-shrink-0" />
+                              : <Circle size={16} className="text-gray-300 flex-shrink-0" />
                             }
-                            <p className={cn('text-sm font-medium', task.status === 'done' && 'line-through text-gray-400')}>
+                            <p className={cn('text-sm font-medium text-gray-700', task.status === 'DONE' && 'line-through text-gray-400')}>
                               {task.title}
                             </p>
                           </div>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-6 py-4">
                           {priority && (
-                            <span className="text-[11px] font-semibold px-2 py-0.5 rounded"
-                              style={{ background: priority.bgColor, color: priority.color }}>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded uppercase"
+                              style={{ background: `${priority.color}15`, color: priority.color }}>
                               {priority.label}
                             </span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-xs text-gray-500">
-                          {(task as any).assignedTo?.name ?? '—'}
+                        <td className="px-6 py-4 text-xs font-medium text-gray-600">
+                          {task.assignedTo?.name ?? '—'}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-6 py-4">
                           {due ? (
-                            <span className={cn('text-xs', due.isOverdue ? 'text-red-500' : 'text-gray-500')}>
+                            <span className={cn('text-xs font-medium', due.isOverdue ? 'text-red-500' : 'text-gray-500')}>
                               {due.label}
                             </span>
                           ) : <span className="text-gray-300 text-xs">—</span>}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-6 py-4">
                           <select
                             value={task.status}
                             onClick={e => e.stopPropagation()}
                             onChange={e => moveTask(task.id, e.target.value as TaskStatus)}
-                            className="text-xs border border-gray-200 rounded-md px-2 py-1 bg-white text-gray-700 focus:outline-none focus:border-blue-400">
-                            <option value="todo">To Do</option>
-                            <option value="in_progress">In Progress</option>
-                            <option value="done">Done</option>
+                            className="text-xs font-semibold border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500/20 transition-all">
+                            {TASK_STATUSES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
                           </select>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-6 py-4 text-right">
                           <Button variant="ghost" size="xs"
-                            onClick={e => { e.stopPropagation(); handleDelete(task.id) }}>
+                            onClick={e => { e.stopPropagation(); handleDelete(task.id) }}
+                            className="opacity-0 group-hover:opacity-100 text-red-500 hover:bg-red-50 transition-all">
                             Delete
                           </Button>
                         </td>
