@@ -112,7 +112,7 @@ export default function TeamPage() {
         <div>
           <h1 className="text-xl font-bold text-gray-900">Team</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            {users.filter(u => u.status === 'active').length} active ·{' '}
+            {users.filter(u => u.status === 'ACTIVE').length} active ·{' '}
             {pendingCount > 0 && <span className="text-amber-600 font-medium">{pendingCount} invite{pendingCount > 1 ? 's' : ''} pending</span>}
             {pendingCount === 0 && 'no pending invites'}
           </p>
@@ -173,7 +173,7 @@ export default function TeamPage() {
                       <tr key={u.id} className={cn('border-b border-gray-50 hover:bg-gray-50/70 transition-colors', i === users.length - 1 && 'border-0')}>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2.5">
-                            <Avatar name={u.name} size={32} bg={u.status === 'active' ? '#2563EB' : '#9CA3AF'} />
+                            <Avatar name={u.name} size={32} bg={u.status === 'ACTIVE' ? '#2563EB' : '#9CA3AF'} />
                             <div>
                               <p className="font-medium text-gray-900 text-sm">{u.name}</p>
                               <p className="text-xs text-gray-400">{u.email}</p>
@@ -187,8 +187,8 @@ export default function TeamPage() {
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1.5">
-                            <div className={cn('w-1.5 h-1.5 rounded-full', u.status === 'active' ? 'bg-green-500' : 'bg-gray-300')} />
-                            <span className={cn('text-xs font-medium capitalize', u.status === 'active' ? 'text-green-700' : 'text-gray-400')}>
+                            <div className={cn('w-1.5 h-1.5 rounded-full', u.status === 'ACTIVE' ? 'bg-green-500' : 'bg-gray-300')} />
+                            <span className={cn('text-xs font-medium capitalize', u.status === 'ACTIVE' ? 'text-green-700' : 'text-gray-400')}>
                               {u.status}
                             </span>
                           </div>
@@ -197,8 +197,8 @@ export default function TeamPage() {
                           {(u as any).joinedAt ? formatRelative((u as any).joinedAt) : '—'}
                         </td>
                         <td className="px-4 py-3">
-                          {u.role !== 'super_admin' && (
-                            u.status === 'active'
+                          {u.role !== 'SUPER_ADMIN' && (
+                            u.status === 'ACTIVE'
                               ? <Button variant="ghost" size="xs" onClick={() => handleDeactivate(u.id, u.name)}>
                                   <UserX size={12} /> Deactivate
                                 </Button>
@@ -221,19 +221,19 @@ export default function TeamPage() {
                 return (
                   <div key={u.id} className="card p-4">
                     <div className="flex items-center gap-3 mb-3">
-                      <Avatar name={u.name} size={36} bg={u.status === 'active' ? '#2563EB' : '#9CA3AF'} />
+                      <Avatar name={u.name} size={36} bg={u.status === 'ACTIVE' ? '#2563EB' : '#9CA3AF'} />
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-gray-900 text-sm">{u.name}</p>
                         <p className="text-xs text-gray-400 truncate">{u.email}</p>
                       </div>
-                      <div className={cn('w-2 h-2 rounded-full flex-shrink-0', u.status === 'active' ? 'bg-green-500' : 'bg-gray-300')} />
+                      <div className={cn('w-2 h-2 rounded-full flex-shrink-0', u.status === 'ACTIVE' ? 'bg-green-500' : 'bg-gray-300')} />
                     </div>
                     <div className="flex items-center justify-between">
                       <Badge bgColor={roleStyle.bg} textColor={roleStyle.color} className="capitalize text-[11px]">
                         {u.role.replace('_', ' ')}
                       </Badge>
-                      {u.role !== 'super_admin' && (
-                        u.status === 'active'
+                      {u.role !== 'SUPER_ADMIN' && (
+                        u.status === 'ACTIVE'
                           ? <Button variant="ghost" size="xs" onClick={() => handleDeactivate(u.id, u.name)}>
                               <UserX size={12} /> Deactivate
                             </Button>

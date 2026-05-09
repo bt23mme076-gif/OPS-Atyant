@@ -84,6 +84,8 @@ export interface Student {
   name: string
   email: string
   phone?: string | null
+  parentName?: string | null
+  grade?: string | null
   collegeName?: string | null
   branch?: string | null
   graduationYear?: number | null
@@ -92,10 +94,29 @@ export interface Student {
   assignedToId?: string | null
   assignedTo?: AuthUser | null
   notes?: string | null
+  source?: string | null
   createdAt: string
   updatedAt: string
 }
 
+
+// ── Session ──────────────────────────────────────────────────
+export interface Session {
+  id: string
+  mentorId?: string | null
+  studentId?: string | null
+  mentor?: Mentor | null
+  student?: Student | null
+  scheduledAt: string
+  durationMinutes?: number | null
+  type?: string | null
+  format?: string | null
+  rating?: number | null
+  status: 'SCHEDULED' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW'
+  notes?: string | null
+  createdAt: string
+  updatedAt: string
+}
 
 // ── Task ─────────────────────────────────────────────────────
 export interface Task {
