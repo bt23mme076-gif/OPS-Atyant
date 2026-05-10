@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Users, GraduationCap, Video, CheckSquare, Shield, Settings, LogOut, Bell } from 'lucide-react'
+import { LayoutDashboard, Users, GraduationCap, Video, CheckSquare, Shield, Settings, LogOut, Bell, LayoutGrid } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
 import { useAppDispatch, useAppSelector, useCurrentUser } from '@/store/hooks'
 import { clearCredentials } from '@/store/slices/authSlice'
@@ -10,7 +10,7 @@ import { useGetNotificationsQuery } from '@/store/api/dashboardApi'
 import { NAV_ITEMS } from '@/lib/constants'
 
 const ICON_MAP: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
-  LayoutDashboard, Users, GraduationCap, Video, CheckSquare, Shield, Settings,
+  LayoutDashboard, Users, GraduationCap, Video, CheckSquare, Shield, Settings, LayoutGrid,
 }
 
 export function Sidebar() {

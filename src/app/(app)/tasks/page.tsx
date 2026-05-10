@@ -47,7 +47,10 @@ function TaskModal({
   })
 
   async function submit() {
-    if (!form.title.trim()) return
+    if (!form.title.trim()) { toast.error('Title is required'); return }
+    if (!form.assignedToId) { toast.error('Please assign this task to someone'); return }
+    if (!form.dueDate)      { toast.error('Please select a due date'); return }
+    
     try {
       if (isEdit) {
         await update({ id: task!.id, data: form }).unwrap()

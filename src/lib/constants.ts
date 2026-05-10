@@ -82,7 +82,7 @@ export const NAV_ITEMS = [
   },
   {
     section: 'Team', items: [
-      { href: '/team', label: 'Team', icon: 'Shield', roles: [ROLES.SUPER_ADMIN] },
+      { href: '/command-centre', label: 'Command Centre', icon: 'LayoutGrid', roles: [ROLES.SUPER_ADMIN, ROLES.MANAGER] },
       { href: '/settings', label: 'Settings', icon: 'Settings', roles: [ROLES.SUPER_ADMIN, ROLES.MANAGER, ROLES.INTERN] },
     ]
   },
