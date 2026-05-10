@@ -28,7 +28,7 @@ const INVITE_STATUS = {
 function InviteModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [invite, { isLoading }] = useInviteUserMutation()
   const [email, setEmail] = useState('')
-  const [role, setRole]   = useState('sales')
+  const [role, setRole]   = useState('INTERN')
 
   async function submit() {
     if (!email.trim()) return
@@ -54,11 +54,9 @@ function InviteModal({ open, onClose }: { open: boolean; onClose: () => void }) 
           <label className="label block mb-1.5">Role</label>
           <select className="input" value={role} onChange={e => setRole(e.target.value)}>
             {[
-              ['admin',    'Admin — full access except managing other admins'],
-              ['sales',    'Sales — pipeline cards assigned to them'],
-              ['content',  'Content — answer cards, success stories'],
-              ['outreach', 'Outreach — mentor recruitment, student outreach'],
-              ['viewer',   'Viewer — read only across all modules'],
+              ['SUPER_ADMIN', 'Super Admin — full access'],
+              ['MANAGER',     'Manager — can manage interns and their tasks'],
+              ['INTERN',      'Intern — standard access to assigned tasks'],
             ].map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
         </div>
