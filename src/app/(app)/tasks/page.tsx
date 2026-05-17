@@ -1,5 +1,6 @@
 'use client'
-import { useState } from 'react'
+
+import { useMemo, useState, type ChangeEvent } from 'react'
 import { Plus, RefreshCw, User, CheckCircle2, Circle, MoreHorizontal } from 'lucide-react'
 import { useGetTasksQuery, useGetMyTasksQuery, useCreateTaskMutation, useUpdateTaskMutation, useDeleteTaskMutation } from '@/store/api/tasksApi'
 import { useGetUsersQuery } from '@/store/api/usersApi'
@@ -8,7 +9,6 @@ import { Button, Modal, Spinner, Empty } from '@/components/ui'
 import { formatDue, cn } from '@/lib/utils'
 import type { TaskStatus, Task } from '@/types'
 import toast from 'react-hot-toast'
-
 import { TASK_PRIORITIES, TASK_STATUSES, ROLES, SQUADS } from '@/lib/constants'
 
 const PRIORITY_MAP = Object.fromEntries(TASK_PRIORITIES.map(p => [p.key, p]))
@@ -17,6 +17,165 @@ const COLUMNS = TASK_STATUSES.map(s => ({
   ...s,
   bgColor: s.color === '#6B7280' ? '#F3F4F6' : `${s.color}10`
 }))
+
+const normalize = (value?: string | null) =>
+  String(value ?? '')
+    .trim()
+    .toUpperCase()
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+
+const getUserId = (user: any) =>
+  user.id ?? user._id ?? user.userId ?? ''
+
+const getUserName = (user: any) =>
+  user.name ?? user.fullName ?? user.username ?? user.email ?? 'Unnamed User'
+
+const getUserRole = (user: any) =>
+  normalize(user.role ?? user.userRole ?? user.type)
+
+const getUserSquad = (user: any) =>
+  normalize(user.squad ?? user.team ?? user.department ?? user.category ?? user.domain)
+
+const getSearchText = (user: any) =>
+  normalize([
+    user.squad,
+    user.team,
+    user.department,
+    user.category,
+    user.domain,
+    user.role,
+    user.userRole,
+    user.type,
+    user.position,
+    user.designation,
+    user.title,
+    user.name,
+    user.fullName,
+    user.email
+  ].filter(Boolean).join(' '))
+
+const isInternUser = (user: any) => {
+  const role = getUserRole(user)
+  const text = getSearchText(user)
+
+  return (
+    role === normalize(ROLES.INTERN) ||
+    role.includes('INTERN') ||
+    text.includes('INTERN') ||
+    text.includes('STUDENT')
+  )
+}
+
+const SQUAD_ALIASES: Record<string, string[]> = {
+  TECH: [
+    'TECH',
+    'TECH TEAM',
+    'TECHNICAL',
+    'TECHNICAL TEAM',
+    'WEB DEV',
+    'WEBDEV',
+    'WEB DEVELOPMENT',
+    'DEVELOPER',
+    'DEVELOPMENT'
+  ],
+  OUTREACH: [
+    'OUTREACH',
+    'OUTREACH TEAM',
+    'OUTREACH INTERN',
+    'MARKETING',
+    'MARKETING TEAM',
+    'SALES',
+    'SALES TEAM',
+    'LEAD',
+    'LEADS',
+    'LEAD GENERATION',
+    'COMMUNITY',
+    'PROMOTION',
+    'CAMPUS',
+    'RELATIONS'
+  ],
+  CONTENT: [
+    'CONTENT',
+    'CONTENT TEAM',
+    'CONTENT INTERN',
+    'WRITER',
+    'WRITING',
+    'COPYWRITER',
+    'COPY WRITER',
+    'COPYWRITING',
+    'SOCIAL MEDIA',
+    'SCRIPT',
+    'BLOG',
+    'POST',
+    'CREATIVE'
+  ],
+  PRODUCT: [
+    'PRODUCT',
+    'PRODUCT TEAM',
+    'PRODUCT INTERN',
+    'PRODUCT STRATEGY',
+    'STRATEGY',
+    'OPERATIONS',
+    'OPS',
+    'RESEARCH',
+    'ANALYST',
+    'BUSINESS',
+    'FEATURE'
+  ],
+  'HR DESIGN': [
+    'HR DESIGN',
+    'HR',
+    'HUMAN RESOURCE',
+    'HUMAN RESOURCES',
+    'DESIGN',
+    'DESIGN TEAM',
+    'UI',
+    'UX',
+    'UI UX',
+    'GRAPHIC',
+    'GRAPHIC DESIGN',
+    'DESIGNER'
+  ]
+}
+
+const getSquadKey = (value?: string | null) => {
+  const selected = normalize(value)
+
+  if (!selected) return ''
+
+  if (selected.includes('HR') && selected.includes('DESIGN')) return 'HR DESIGN'
+
+  const direct = Object.keys(SQUAD_ALIASES).find(key => normalize(key) === selected)
+
+  if (direct) return direct
+
+  const matched = Object.entries(SQUAD_ALIASES).find(([_, aliases]) =>
+    aliases.some(alias => selected === normalize(alias) || selected.includes(normalize(alias)))
+  )
+
+  return matched?.[0] ?? selected
+}
+
+const userMatchesSquad = (user: any, selectedSquad: string) => {
+  const squadKey = getSquadKey(selectedSquad)
+  const userSquad = getUserSquad(user)
+  const userText = getSearchText(user)
+
+  if (!squadKey) return true
+
+  const aliases = SQUAD_ALIASES[squadKey] ?? [squadKey]
+
+  return aliases.some(alias => {
+    const normalAlias = normalize(alias)
+
+    return (
+      userSquad === normalAlias ||
+      userSquad.includes(normalAlias) ||
+      userText.includes(normalAlias)
+    )
+  })
+}
 
 function TaskModal({
   open, onClose, task,
@@ -38,13 +197,28 @@ function TaskModal({
     feedback: (task as any)?.feedback ?? '',
   })
 
-  const f = (k: string) => (e: React.ChangeEvent<any>) =>
+  const f = (k: string) => (e: ChangeEvent<any>) =>
     setForm(p => ({ ...p, [k]: e.target.value }))
 
-  const assignableUsers = users.filter(u => {
-    if (!form.squad) return false
-    return u.role === ROLES.INTERN && u.squad === form.squad
-  })
+  const selectedSquadKey = getSquadKey(form.squad)
+
+  const internUsers = useMemo(() => {
+    return users
+      .filter((u: any) => isInternUser(u))
+      .filter((u: any) => getUserId(u))
+  }, [users])
+
+  const exactSquadUsers = useMemo(() => {
+    return internUsers.filter((u: any) => userMatchesSquad(u, form.squad))
+  }, [internUsers, form.squad])
+
+  const assignableUsers = useMemo(() => {
+    if (!form.squad) return internUsers
+
+    if (exactSquadUsers.length > 0) return exactSquadUsers
+
+    return []
+  }, [form.squad, internUsers, exactSquadUsers])
 
   async function submit() {
     if (!form.title.trim()) {
@@ -79,6 +253,7 @@ function TaskModal({
         }).unwrap()
         toast.success('Task created')
       }
+
       onClose()
     } catch {
       toast.error('Failed to save task')
@@ -160,12 +335,24 @@ function TaskModal({
             </label>
             <select className="input" value={form.assignedToId} onChange={f('assignedToId')}>
               <option value="">Unassigned</option>
-              {assignableUsers.map(u => (
-                <option key={u.id} value={u.id}>
-                  {u.name}
-                </option>
-              ))}
+              {assignableUsers.map((u: any) => {
+                const userId = getUserId(u)
+                const userName = getUserName(u)
+                const userSquad = getUserSquad(u)
+
+                return (
+                  <option key={userId} value={userId}>
+                    {userName} {userSquad ? `— ${userSquad}` : ''}
+                  </option>
+                )
+              })}
             </select>
+
+            {form.squad && assignableUsers.length === 0 && (
+              <p className="mt-1 text-[11px] text-red-500">
+                No intern users found for {selectedSquadKey || form.squad}. Please check if those interns are added with correct squad details.
+              </p>
+            )}
           </div>
 
           <div>
@@ -276,7 +463,9 @@ function TaskCard({ task, onEdit, onMove, onDelete }: {
                   Move to {s.label}
                 </button>
               ))}
+
               <div className="border-t border-gray-100 my-1" />
+
               <button
                 className="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50"
                 onClick={() => {
@@ -330,7 +519,7 @@ export default function TasksPage() {
     }
 
     if (user?.role === ROLES.MANAGER) {
-      return allTasks.filter(t => t.squad === user.squad)
+      return allTasks.filter(t => getSquadKey(t.squad) === getSquadKey(user.squad))
     }
 
     return allTasks
@@ -417,6 +606,7 @@ export default function TasksPage() {
                       {col.label}
                     </span>
                   </div>
+
                   <span className="text-[10px] font-bold text-gray-400 bg-white border border-gray-100 rounded-full px-2 py-0.5">
                     {colTasks.length}
                   </span>
@@ -476,6 +666,7 @@ export default function TasksPage() {
                           ? <CheckCircle2 size={16} className="text-green-500 flex-shrink-0" />
                           : <Circle size={16} className="text-gray-300 flex-shrink-0" />
                         }
+
                         <p className={cn('text-sm font-medium text-gray-700', task.status === 'DONE' && 'line-through text-gray-400')}>
                           {task.title}
                         </p>
