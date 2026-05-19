@@ -256,7 +256,7 @@ export default function CommandCentrePage() {
   return (
     <div className="max-w-6xl">
       {/* ── Top nav tabs ─────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-3">
         <div className="flex gap-0 border border-gray-200 rounded-lg overflow-hidden bg-white">
           {([
             ['overview', 'Overview', BarChart2],
@@ -538,7 +538,7 @@ export default function CommandCentrePage() {
           {invites.length > 0 && (
             <div className="mt-8">
               <h2 className="text-sm font-semibold text-gray-700 mb-3">Pending Invites ({invites.filter(i => i.status === 'pending').length})</h2>
-              <div className="card overflow-hidden">
+              <div className="card overflow-x-auto whitespace-nowrap">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-100 bg-gray-50/50">

@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Users, GraduationCap, Video, CheckSquare, Shield, Settings, LogOut, Bell, LayoutGrid } from 'lucide-react'
+import { LayoutDashboard, Users, GraduationCap, Video, CheckSquare, Shield, Settings, LogOut, Bell, LayoutGrid, X } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
 import { useAppDispatch, useAppSelector, useCurrentUser } from '@/store/hooks'
 import { clearCredentials } from '@/store/slices/authSlice'
@@ -13,7 +13,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ size?: number; className?: 
   LayoutDashboard, Users, GraduationCap, Video, CheckSquare, Shield, Settings, LayoutGrid,
 }
 
-export function Sidebar() {
+export function Sidebar({ isOpen = false, onClose }: { isOpen?: boolean; onClose?: () => void }) {
   const pathname = usePathname()
   const dispatch = useAppDispatch()
   const user     = useCurrentUser()
@@ -33,11 +33,17 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="ops-sidebar flex flex-col select-none">
+    <aside className={cn('ops-sidebar flex flex-col select-none', isOpen && 'open')}>
       {/* Brand */}
-      <div className="px-5 py-4 border-b border-white/10">
-        <div className="text-white font-bold text-base tracking-tight">Atyant</div>
-        <div className="text-[10px] text-white/40 uppercase tracking-widest mt-0.5">OPS — Internal</div>
+      <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between">
+        <div>
+          <div className="text-white font-bold text-base tracking-tight">Atyant</div>
+          <div className="text-[10px] text-white/40 uppercase tracking-widest mt-0.5">OPS — Internal</div>
+        </div>
+        {/* Mobile Close Button */}
+        <button onClick={onClose} className="md:hidden text-white/60 hover:text-white p-1">
+          <X size={20} />
+        </button>
       </div>
 
       {/* Notifications */}
@@ -68,7 +74,7 @@ export function Sidebar() {
                   const Icon = ICON_MAP[item.icon]
                   const active = isActive(item.href)
                   return (
-                    <Link key={item.href} href={item.href}
+                    <Link key={item.href} href={item.href} onClick={onClose}
                       className={cn('flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-all duration-150',
                         active ? 'bg-primary text-white font-medium' : 'text-white/60 hover:text-white hover:bg-white/8')}>
                       {Icon && <Icon size={15} className="flex-shrink-0" />}

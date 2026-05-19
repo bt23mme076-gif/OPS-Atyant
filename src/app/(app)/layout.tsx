@@ -7,8 +7,11 @@ import { useGetMeQuery } from '@/store/api/authApi'
 import { useAppDispatch } from '@/store/hooks'
 import { setCredentials } from '@/store/slices/authSlice'
 
+import { Menu } from 'lucide-react'
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const isAuth = useIsAuthenticated()
   const dispatch = useAppDispatch()
 
@@ -64,10 +67,27 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="ops-shell">
-      <Sidebar />
+      {/* Mobile Header */}
+      <div className="md:hidden flex items-center justify-between p-4 bg-white border-b border-gray-200 shrink-0">
+        <div className="font-bold text-lg text-gray-900">Atyant</div>
+        <button onClick={() => setSidebarOpen(true)} className="p-2 text-gray-600 hover:bg-gray-100 rounded-md">
+          <Menu size={20} />
+        </button>
+      </div>
+
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      
       <div className="ops-main">
         <main className="ops-content">{children}</main>
       </div>
+
+      {/* Mobile Overlay */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 md:hidden" 
+          onClick={() => setSidebarOpen(false)} 
+        />
+      )}
     </div>
   )
 }

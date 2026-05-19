@@ -447,7 +447,7 @@ export default function TasksPage() {
       ) : tasks.length === 0 ? (
         <Empty title="No tasks yet" description="Create a task to get started" />
       ) : (
-        <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+        <div className="bg-white border border-gray-200 rounded-2xl overflow-x-auto whitespace-nowrap shadow-sm">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50/50">

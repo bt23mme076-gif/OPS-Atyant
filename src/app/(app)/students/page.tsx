@@ -62,7 +62,7 @@ export default function StudentsPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Students</h1>
           <p className="text-sm text-gray-500 mt-0.5">{students.length} total · {students.filter(s => s.stage === 'active').length} active</p>
@@ -92,7 +92,7 @@ export default function StudentsPage() {
 
       {isLoading ? <div className="flex justify-center py-16"><Spinner /></div> :
        filtered.length === 0 ? <Empty title="No students found" description="Add a student to get started" /> : (
-        <div className="card overflow-hidden">
+        <div className="card overflow-x-auto whitespace-nowrap">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100">
