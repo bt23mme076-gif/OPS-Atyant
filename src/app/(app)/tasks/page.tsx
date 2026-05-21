@@ -31,7 +31,7 @@ function TaskModal({
     title: task?.title ?? '',
     description: task?.description ?? '',
     priority: task?.priority ?? 'MEDIUM',
-    squad: (task as any)?.squad ?? '',
+    squad: (task as any)?.squad ?? (user?.role === 'MANAGER' ? user?.squad ?? '' : ''),
     assignedToId: (task as any)?.assignedToId ?? (task as any)?.assignedTo?.id ?? '',
     dueDate: task?.dueDate ? new Date(task.dueDate).toISOString().slice(0, 16) : '',
     proofLink: (task as any)?.proofLink ?? '',
@@ -158,7 +158,6 @@ function TaskModal({
               value={form.squad}
               onChange={(e) => {
                 const selectedSquad = e.target.value
-
                 setForm(p => ({
                   ...p,
                   squad: selectedSquad,

@@ -508,8 +508,8 @@ export default function CommandCentrePage() {
                             </button>
                           )}
                         </div>
-                        {/* Squad change — for interns */}
-                        {u.role === 'INTERN' && (
+                        {/* Squad change — for interns and managers */}
+                        {(u.role === 'INTERN' || u.role === 'MANAGER') && (
                           <div>
                             <p className="text-[10px] text-gray-400 mb-1">Move to squad:</p>
                             <div className="flex gap-1 flex-wrap">
@@ -523,6 +523,39 @@ export default function CommandCentrePage() {
                                   </button>
                                 )
                               })}
+                            </div>
+                          </div>
+                        )}
+                        {/* Role change — toggle between MANAGER and INTERN */}
+                        {(u.role === 'INTERN' || u.role === 'MANAGER') && (
+                          <div>
+                            <p className="text-[10px] text-gray-400 mb-1">Change role:</p>
+                            <div className="flex gap-1">
+                              {u.role === 'INTERN' ? (
+                                <button
+                                  onClick={() => {
+                                    if (!confirm(`Promote ${u.name} to Manager?`)) return
+                                    updateUser({ id: u.id, data: { role: 'MANAGER' } }).unwrap()
+                                      .then(() => toast.success(`${u.name} promoted to Manager`))
+                                      .catch(() => toast.error('Failed to update role'))
+                                  }}
+                                  className="flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-md border transition-all"
+                                  style={{ borderColor: '#1D4ED844', background: '#EFF6FF', color: '#1D4ED8' }}>
+                                  ↑ Promote to Manager
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    if (!confirm(`Demote ${u.name} to Intern?`)) return
+                                    updateUser({ id: u.id, data: { role: 'INTERN' } }).unwrap()
+                                      .then(() => toast.success(`${u.name} changed to Intern`))
+                                      .catch(() => toast.error('Failed to update role'))
+                                  }}
+                                  className="flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-md border transition-all"
+                                  style={{ borderColor: '#15803D44', background: '#F0FDF4', color: '#15803D' }}>
+                                  ↓ Change to Intern
+                                </button>
+                              )}
                             </div>
                           </div>
                         )}
