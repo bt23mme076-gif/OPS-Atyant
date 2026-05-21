@@ -67,18 +67,52 @@ function TaskModal({
       return
     }
 
+    const selectedUser = users.find(u => u.id === form.assignedToId)
+
+    if (!selectedUser) {
+      toast.error('Selected intern not found')
+      return
+    }
+
+    if (selectedUser.role !== ROLES.INTERN) {
+      toast.error('Task can be assigned only to interns')
+      return
+    }
+
+    if (selectedUser.squad !== form.squad) {
+      toast.error('Selected intern does not belong to this squad')
+      return
+    }
+
+    const payload = {
+      title: form.title.trim(),
+      description: form.description?.trim() || '',
+      priority: form.priority,
+      squad: form.squad,
+      assignedToId: form.assignedToId,
+      dueDate: form.dueDate,
+      proofLink: form.proofLink || '',
+      feedback: form.feedback || '',
+    }
+
     try {
       if (isEdit) {
-        await update({ id: task!.id, data: form }).unwrap()
+        await update({
+          id: task!.id,
+          data: payload,
+        }).unwrap()
+
         toast.success('Task updated')
       } else {
         await create({
-          ...form,
+          ...payload,
           status: 'TODO',
-          assignedById: user?.id
+          assignedById: user?.id,
         }).unwrap()
+
         toast.success('Task created')
       }
+
       onClose()
     } catch {
       toast.error('Failed to save task')
@@ -122,13 +156,15 @@ function TaskModal({
             <select
               className="input"
               value={form.squad}
-              onChange={(e) =>
+              onChange={(e) => {
+                const selectedSquad = e.target.value
+
                 setForm(p => ({
                   ...p,
-                  squad: e.target.value,
-                  assignedToId: ''
+                  squad: selectedSquad,
+                  assignedToId: '',
                 }))
-              }
+              }}
             >
               <option value="">Select squad</option>
               {Object.entries(SQUADS).map(([k, v]) => (
@@ -158,14 +194,32 @@ function TaskModal({
             <label className="label block mb-1.5 text-xs font-semibold uppercase tracking-wider text-gray-500">
               Assign to
             </label>
-            <select className="input" value={form.assignedToId} onChange={f('assignedToId')}>
-              <option value="">Unassigned</option>
+            <select
+              className="input"
+              value={form.assignedToId}
+              onChange={f('assignedToId')}
+              disabled={!form.squad || assignableUsers.length === 0}
+            >
+              <option value="">
+                {!form.squad
+                  ? 'Select squad first'
+                  : assignableUsers.length === 0
+                    ? 'No interns in this squad'
+                    : 'Select intern'}
+              </option>
+
               {assignableUsers.map(u => (
                 <option key={u.id} value={u.id}>
-                  {u.name}
+                  {u.name} — {u.squad}
                 </option>
               ))}
             </select>
+
+            {form.squad && assignableUsers.length === 0 && (
+              <p className="mt-1 text-xs text-red-500">
+                No active interns found in {form.squad}. Please add interns to this squad from Command Centre.
+              </p>
+            )}
           </div>
 
           <div>
@@ -330,7 +384,7 @@ export default function TasksPage() {
     }
 
     if (user?.role === ROLES.MANAGER) {
-      return allTasks.filter(t => t.squad === user.squad)
+      return allTasks
     }
 
     return allTasks
