@@ -6,15 +6,15 @@ import { Spinner } from '@/components/ui'
 import { useGetMeQuery } from '@/store/api/authApi'
 import { useAppDispatch } from '@/store/hooks'
 import { setCredentials } from '@/store/slices/authSlice'
+import { Menu, X } from 'lucide-react'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const isAuth = useIsAuthenticated()
   const dispatch = useAppDispatch()
 
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+  useEffect(() => { setMounted(true) }, [])
 
   const { isLoading, data, error } = useGetMeQuery(undefined, { skip: !mounted || isAuth })
 
@@ -27,7 +27,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     if (isLoading) return
     if (isAuth) return
     if (data) return
-    // ✅ Only redirect if getMe actually failed with 401, not any other error
     if (error && (error as any).status === 401) {
       window.location.href = '/login'
     }
@@ -64,7 +63,45 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="ops-shell">
-      <Sidebar />
+      {/* Mobile topbar — only visible on small screens */}
+      <div className="ops-mobile-bar">
+        <div>
+          <div className="text-white font-bold text-sm tracking-tight">Atyant</div>
+          <div className="text-[10px] text-white/40 uppercase tracking-widest">OPS — Internal</div>
+        </div>
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="text-white/70 hover:text-white p-1 rounded-md hover:bg-white/10 transition-colors"
+          aria-label="Open menu"
+        >
+          <Menu size={22} />
+        </button>
+      </div>
+
+      {/* Sidebar overlay for mobile */}
+      <div
+        className={`ops-sidebar-overlay ${sidebarOpen ? 'open' : ''}`}
+        onClick={() => setSidebarOpen(false)}
+      />
+
+      {/* Sidebar */}
+      <aside className={`ops-sidebar ${sidebarOpen ? 'open' : ''}`}>
+        {/* Mobile close button inside sidebar */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 md:hidden">
+          <div>
+            <div className="text-white font-bold text-base tracking-tight">Atyant</div>
+            <div className="text-[10px] text-white/40 uppercase tracking-widest mt-0.5">OPS — Internal</div>
+          </div>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="text-white/50 hover:text-white p-1 rounded-md hover:bg-white/10 transition-colors"
+          >
+            <X size={18} />
+          </button>
+        </div>
+        <Sidebar onNavigate={() => setSidebarOpen(false)} />
+      </aside>
+
       <div className="ops-main">
         <main className="ops-content">{children}</main>
       </div>
