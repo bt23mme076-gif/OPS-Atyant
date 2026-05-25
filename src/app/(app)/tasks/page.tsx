@@ -14,6 +14,8 @@ import {
   Sparkles,
   Clock,
   AlertTriangle,
+  Copy,
+  MessageSquareText,
 } from 'lucide-react'
 import {
   useGetTasksQuery,
@@ -67,6 +69,52 @@ function getDueBadge(task: Task) {
   }
 }
 
+function getTaskAssigneeId(task: Task) {
+  return (task as any)?.assignedToId ?? (task as any)?.assignedTo?.id ?? ''
+}
+
+function getActiveTaskCount(tasks: Task[], userId: string) {
+  if (!userId) return 0
+
+  return tasks.filter(task => {
+    const assigneeId = getTaskAssigneeId(task)
+    return assigneeId === userId && task.status !== 'DONE'
+  }).length
+}
+
+function getWorkloadMeta(count: number) {
+  if (count >= 3) {
+    return {
+      label: 'Busy',
+      dot: 'bg-red-500',
+      text: 'text-red-600',
+      bg: 'bg-red-50',
+      border: 'border-red-100',
+      emoji: '🔴',
+    }
+  }
+
+  if (count >= 1) {
+    return {
+      label: 'Working',
+      dot: 'bg-amber-500',
+      text: 'text-amber-600',
+      bg: 'bg-amber-50',
+      border: 'border-amber-100',
+      emoji: '🟡',
+    }
+  }
+
+  return {
+    label: 'Available',
+    dot: 'bg-emerald-500',
+    text: 'text-emerald-600',
+    bg: 'bg-emerald-50',
+    border: 'border-emerald-100',
+    emoji: '🟢',
+  }
+}
+
 function TaskModal({
   open,
   onClose,
@@ -81,6 +129,7 @@ function TaskModal({
   const [create, { isLoading: creating }] = useCreateTaskMutation()
   const [update, { isLoading: updating }] = useUpdateTaskMutation()
   const { data: users = [] } = useGetUsersQuery()
+  const { data: allTasks = [] } = useGetTasksQuery()
 
   const [form, setForm] = useState({
     title: task?.title ?? '',
@@ -100,6 +149,30 @@ function TaskModal({
     if (!form.squad) return false
     return u.role === ROLES.INTERN && u.squad === form.squad
   })
+
+  const selectedUser = users.find(u => u.id === form.assignedToId)
+  const selectedUserActiveTasks = selectedUser
+    ? getActiveTaskCount(allTasks, selectedUser.id)
+    : 0
+  const selectedWorkload = getWorkloadMeta(selectedUserActiveTasks)
+
+  const followUpMessage = selectedUser
+    ? `Hi ${selectedUser.name}, you have been assigned the task "${form.title || 'your task'}" under ${form.squad || 'your'} squad. Please complete it before the due date${form.dueDate ? ` (${new Date(form.dueDate).toLocaleString()})` : ''}. Let me know if you are blocked or need any clarification.`
+    : ''
+
+  async function copyFollowUpMessage() {
+    if (!followUpMessage) {
+      toast.error('Select an intern first')
+      return
+    }
+
+    try {
+      await navigator.clipboard.writeText(followUpMessage)
+      toast.success('Follow-up message copied')
+    } catch {
+      toast.error('Failed to copy message')
+    }
+  }
 
   async function submit() {
     if (!form.title.trim()) {
@@ -262,17 +335,36 @@ function TaskModal({
                     : 'Select intern'}
               </option>
 
-              {assignableUsers.map(u => (
-                <option key={u.id} value={u.id}>
-                  {u.name} — {u.squad}
-                </option>
-              ))}
+              {assignableUsers.map(u => {
+                const activeCount = getActiveTaskCount(allTasks, u.id)
+                const workload = getWorkloadMeta(activeCount)
+
+                return (
+                  <option key={u.id} value={u.id}>
+                    {workload.emoji} {u.name} — {u.squad} — {activeCount === 0 ? 'Available' : `${activeCount} active task${activeCount > 1 ? 's' : ''}`}
+                  </option>
+                )
+              })}
             </select>
 
             {form.squad && assignableUsers.length === 0 && (
               <p className="mt-1 text-xs text-red-500">
                 No active interns found in {form.squad}. Please add interns to this squad from Command Centre.
               </p>
+            )}
+
+            {assignableUsers.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
+                  🟢 Available
+                </span>
+                <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-2 py-1 rounded-full">
+                  🟡 Has active task
+                </span>
+                <span className="text-[10px] font-semibold text-red-600 bg-red-50 px-2 py-1 rounded-full">
+                  🔴 Busy
+                </span>
+              </div>
             )}
           </div>
 
@@ -289,16 +381,58 @@ function TaskModal({
           </div>
         </div>
 
-        {!isEdit && form.assignedToId && (
-          <div className="rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-3 text-xs text-blue-700">
-            <p className="font-semibold">Assignment preview</p>
-            <p className="mt-1">
-              This task will be assigned to{' '}
-              <span className="font-bold">
-                {users.find(u => u.id === form.assignedToId)?.name}
-              </span>{' '}
-              under <span className="font-bold">{form.squad}</span> squad.
-            </p>
+        {!isEdit && form.assignedToId && selectedUser && (
+          <div className={cn('rounded-xl border px-4 py-3 text-xs space-y-3', selectedWorkload.bg, selectedWorkload.border)}>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className={cn('font-bold flex items-center gap-2', selectedWorkload.text)}>
+                  <span className={cn('w-2 h-2 rounded-full', selectedWorkload.dot)} />
+                  Assignment record preview
+                </p>
+
+                <p className="mt-1 text-gray-700">
+                  This task will be assigned to{' '}
+                  <span className="font-bold">{selectedUser.name}</span>{' '}
+                  under <span className="font-bold">{form.squad}</span> squad.
+                </p>
+
+                <p className="mt-1 text-gray-600">
+                  Current workload:{' '}
+                  <span className={cn('font-bold', selectedWorkload.text)}>
+                    {selectedUserActiveTasks === 0
+                      ? 'Available'
+                      : `${selectedUserActiveTasks} active task${selectedUserActiveTasks > 1 ? 's' : ''} · ${selectedWorkload.label}`}
+                  </span>
+                </p>
+              </div>
+
+              <Button
+                variant="secondary"
+                size="xs"
+                onClick={copyFollowUpMessage}
+                className="flex-shrink-0"
+              >
+                <Copy size={12} />
+                Copy message
+              </Button>
+            </div>
+
+            {selectedUserActiveTasks > 0 && (
+              <div className="rounded-lg bg-white/70 border border-white px-3 py-2 flex items-start gap-2">
+                <AlertTriangle size={14} className={selectedWorkload.text} />
+                <p className="text-gray-700">
+                  This intern already has active work. Please assign only if the task is urgent or manageable.
+                </p>
+              </div>
+            )}
+
+            <div className="rounded-lg bg-white/70 border border-white px-3 py-2">
+              <p className="font-semibold text-gray-700 flex items-center gap-1.5">
+                <MessageSquareText size={13} />
+                Follow-up message
+              </p>
+              <p className="mt-1 text-gray-500 leading-relaxed">{followUpMessage}</p>
+            </div>
           </div>
         )}
 
