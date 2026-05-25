@@ -1,26 +1,81 @@
 'use client'
-import { useState } from 'react'
-import { Plus, RefreshCw, User, CheckCircle2, Circle, MoreHorizontal } from 'lucide-react'
-import { useGetTasksQuery, useGetMyTasksQuery, useCreateTaskMutation, useUpdateTaskMutation, useDeleteTaskMutation } from '@/store/api/tasksApi'
+
+import { useMemo, useState } from 'react'
+import type { ChangeEvent } from 'react'
+import {
+  Plus,
+  RefreshCw,
+  User,
+  CheckCircle2,
+  Circle,
+  MoreHorizontal,
+  Search,
+  SlidersHorizontal,
+  Sparkles,
+  Clock,
+  AlertTriangle,
+} from 'lucide-react'
+import {
+  useGetTasksQuery,
+  useGetMyTasksQuery,
+  useCreateTaskMutation,
+  useUpdateTaskMutation,
+  useDeleteTaskMutation,
+} from '@/store/api/tasksApi'
 import { useGetUsersQuery } from '@/store/api/usersApi'
 import { useCurrentUser } from '@/store/hooks'
 import { Button, Modal, Spinner, Empty } from '@/components/ui'
 import { formatDue, cn } from '@/lib/utils'
 import type { TaskStatus, Task } from '@/types'
 import toast from 'react-hot-toast'
-
 import { TASK_PRIORITIES, TASK_STATUSES, ROLES, SQUADS } from '@/lib/constants'
 
 const PRIORITY_MAP = Object.fromEntries(TASK_PRIORITIES.map(p => [p.key, p]))
 
+const PRIORITY_BORDER: Record<string, string> = {
+  URGENT: 'border-l-red-500 bg-red-50/20',
+  HIGH: 'border-l-amber-500 bg-amber-50/20',
+  MEDIUM: 'border-l-blue-500 bg-blue-50/20',
+  LOW: 'border-l-emerald-500 bg-emerald-50/20',
+}
+
 const COLUMNS = TASK_STATUSES.map(s => ({
   ...s,
-  bgColor: s.color === '#6B7280' ? '#F3F4F6' : `${s.color}10`
+  bgColor: s.color === '#6B7280' ? '#F3F4F6' : `${s.color}10`,
 }))
 
+function isNewTask(task: Task) {
+  const createdAt = (task as any)?.createdAt
+  if (!createdAt) return false
+
+  const createdTime = new Date(createdAt).getTime()
+  if (Number.isNaN(createdTime)) return false
+
+  const hoursOld = (Date.now() - createdTime) / (1000 * 60 * 60)
+  return hoursOld <= 24 && task.status !== 'DONE'
+}
+
+function getDueBadge(task: Task) {
+  const dueDate = (task as any)?.dueDate
+  if (!dueDate) return null
+
+  const due = formatDue(dueDate)
+
+  return {
+    label: due.label,
+    isOverdue: due.isOverdue,
+  }
+}
+
 function TaskModal({
-  open, onClose, task,
-}: { open: boolean; onClose: () => void; task?: Task }) {
+  open,
+  onClose,
+  task,
+}: {
+  open: boolean
+  onClose: () => void
+  task?: Task
+}) {
   const isEdit = !!task
   const user = useCurrentUser()
   const [create, { isLoading: creating }] = useCreateTaskMutation()
@@ -38,7 +93,7 @@ function TaskModal({
     feedback: (task as any)?.feedback ?? '',
   })
 
-  const f = (k: string) => (e: React.ChangeEvent<any>) =>
+  const f = (k: string) => (e: ChangeEvent<any>) =>
     setForm(p => ({ ...p, [k]: e.target.value }))
 
   const assignableUsers = users.filter(u => {
@@ -102,7 +157,7 @@ function TaskModal({
           data: payload,
         }).unwrap()
 
-        toast.success('Task updated')
+        toast.success('Task updated successfully')
       } else {
         await create({
           ...payload,
@@ -110,7 +165,7 @@ function TaskModal({
           assignedById: user?.id,
         }).unwrap()
 
-        toast.success('Task created')
+        toast.success(`Task assigned to ${selectedUser.name}`)
       }
 
       onClose()
@@ -148,7 +203,7 @@ function TaskModal({
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="label block mb-1.5 text-xs font-semibold uppercase tracking-wider text-gray-500">
               Squad
@@ -188,7 +243,7 @@ function TaskModal({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="label block mb-1.5 text-xs font-semibold uppercase tracking-wider text-gray-500">
               Assign to
@@ -234,6 +289,19 @@ function TaskModal({
           </div>
         </div>
 
+        {!isEdit && form.assignedToId && (
+          <div className="rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-3 text-xs text-blue-700">
+            <p className="font-semibold">Assignment preview</p>
+            <p className="mt-1">
+              This task will be assigned to{' '}
+              <span className="font-bold">
+                {users.find(u => u.id === form.assignedToId)?.name}
+              </span>{' '}
+              under <span className="font-bold">{form.squad}</span> squad.
+            </p>
+          </div>
+        )}
+
         {isEdit && (
           <div className="pt-4 border-t border-gray-100 space-y-4">
             <div>
@@ -272,7 +340,7 @@ function TaskModal({
             Cancel
           </Button>
           <Button variant="primary" loading={creating || updating} onClick={submit}>
-            {isEdit ? 'Save Changes' : 'Create Task'}
+            {isEdit ? 'Save Changes' : 'Assign Task'}
           </Button>
         </div>
       </div>
@@ -280,7 +348,12 @@ function TaskModal({
   )
 }
 
-function TaskCard({ task, onEdit, onMove, onDelete }: {
+function TaskCard({
+  task,
+  onEdit,
+  onMove,
+  onDelete,
+}: {
   task: Task
   onEdit: () => void
   onMove: (status: TaskStatus) => void
@@ -288,21 +361,49 @@ function TaskCard({ task, onEdit, onMove, onDelete }: {
 }) {
   const priority = PRIORITY_MAP[task.priority]
   const [menuOpen, setMenuOpen] = useState(false)
+  const due = getDueBadge(task)
+  const newTask = isNewTask(task)
+  const borderClass = PRIORITY_BORDER[task.priority] ?? 'border-l-gray-300'
 
   return (
     <div
-      className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm hover:shadow-md hover:border-gray-300 transition-all cursor-pointer group"
+      className={cn(
+        'relative bg-white border border-l-4 border-gray-200 rounded-xl p-3 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-gray-300 transition-all cursor-pointer group',
+        borderClass,
+        newTask && 'ring-2 ring-blue-100'
+      )}
       onClick={onEdit}
     >
+      {newTask && (
+        <div className="absolute -top-2 -right-2 bg-blue-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm flex items-center gap-1">
+          <Sparkles size={10} />
+          New
+        </div>
+      )}
+
       <div className="flex items-start justify-between gap-2 mb-2">
-        {priority && (
-          <span
-            className="text-[10px] font-bold px-1.5 py-0.5 rounded flex-shrink-0"
-            style={{ background: priority.bgColor, color: priority.color }}
-          >
-            {priority.label}
-          </span>
-        )}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {priority && (
+            <span
+              className="text-[10px] font-bold px-1.5 py-0.5 rounded flex-shrink-0"
+              style={{ background: priority.bgColor, color: priority.color }}
+            >
+              {priority.label}
+            </span>
+          )}
+
+          {due && (
+            <span
+              className={cn(
+                'text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1',
+                due.isOverdue ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-500'
+              )}
+            >
+              {due.isOverdue ? <AlertTriangle size={10} /> : <Clock size={10} />}
+              {due.label}
+            </span>
+          )}
+        </div>
 
         <div className="relative ml-auto" onClick={e => e.stopPropagation()}>
           <button
@@ -344,9 +445,15 @@ function TaskCard({ task, onEdit, onMove, onDelete }: {
         </div>
       </div>
 
-      <p className={cn('text-sm font-medium leading-snug mb-2', task.status === 'DONE' && 'line-through text-gray-400')}>
+      <p className={cn('text-sm font-semibold leading-snug mb-2 text-gray-900', task.status === 'DONE' && 'line-through text-gray-400')}>
         {task.title}
       </p>
+
+      {(task as any)?.description && (
+        <p className="text-xs text-gray-500 line-clamp-2 mb-3">
+          {(task as any).description}
+        </p>
+      )}
 
       <div className="flex items-center justify-between mt-1 gap-2">
         <span className="text-[10px] text-gray-400 flex items-center gap-1 uppercase font-bold tracking-tighter">
@@ -371,6 +478,10 @@ export default function TasksPage() {
   const [view, setView] = useState<ViewMode>('board')
   const [addOpen, setAddOpen] = useState(false)
   const [editTask, setEditTask] = useState<Task | undefined>()
+  const [search, setSearch] = useState('')
+  const [priorityFilter, setPriorityFilter] = useState('ALL')
+  const [squadFilter, setSquadFilter] = useState('ALL')
+  const [statusFilter, setStatusFilter] = useState('ALL')
 
   const { data: allTasks = [], isLoading, refetch } = useGetTasksQuery()
   const { data: myTasks = [] } = useGetMyTasksQuery()
@@ -389,9 +500,39 @@ export default function TasksPage() {
     return allTasks
   })()
 
+  const filterOptions = useMemo(() => {
+    const squads = Array.from(new Set(tasks.map(t => (t as any)?.squad).filter(Boolean)))
+    return { squads }
+  }, [tasks])
+
+  const filteredTasks = useMemo(() => {
+    const q = search.trim().toLowerCase()
+
+    return tasks.filter(task => {
+      const assignedName = task.assignedTo?.name?.toLowerCase() ?? ''
+      const title = task.title?.toLowerCase() ?? ''
+      const description = (task as any)?.description?.toLowerCase() ?? ''
+      const squad = (task as any)?.squad ?? ''
+
+      const matchesSearch =
+        !q ||
+        title.includes(q) ||
+        description.includes(q) ||
+        assignedName.includes(q) ||
+        squad.toLowerCase().includes(q)
+
+      const matchesPriority = priorityFilter === 'ALL' || task.priority === priorityFilter
+      const matchesSquad = squadFilter === 'ALL' || squad === squadFilter
+      const matchesStatus = statusFilter === 'ALL' || task.status === statusFilter
+
+      return matchesSearch && matchesPriority && matchesSquad && matchesStatus
+    })
+  }, [tasks, search, priorityFilter, squadFilter, statusFilter])
+
   async function moveTask(id: string, status: TaskStatus) {
     try {
       await updateTask({ id, data: { status } }).unwrap()
+      toast.success(`Task moved to ${TASK_STATUSES.find(s => s.key === status)?.label ?? status}`)
     } catch {
       toast.error('Failed to move task')
     }
@@ -408,12 +549,23 @@ export default function TasksPage() {
     }
   }
 
+  function clearFilters() {
+    setSearch('')
+    setPriorityFilter('ALL')
+    setSquadFilter('ALL')
+    setStatusFilter('ALL')
+  }
+
   const openCount = tasks.filter(t => t.status !== 'DONE').length
   const doneCount = tasks.filter(t => t.status === 'DONE').length
+  const urgentCount = tasks.filter(t => t.priority === 'URGENT' && t.status !== 'DONE').length
+  const reviewCount = tasks.filter(t => t.status === 'REVIEW').length
+  const newCount = tasks.filter(t => isNewTask(t)).length
+  const hasFilters = search || priorityFilter !== 'ALL' || squadFilter !== 'ALL' || statusFilter !== 'ALL'
 
   return (
     <div className="max-w-[1200px] mx-auto">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Tasks</h1>
           <p className="text-sm text-gray-500 mt-1">
@@ -431,24 +583,118 @@ export default function TasksPage() {
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
-        <div className="flex bg-gray-100/80 p-1 rounded-xl gap-1">
-          {([
-            ['board', 'Board'],
-            ['list', 'List'],
-            ['mine', 'My Tasks'],
-          ] as [ViewMode, string][]).map(([v, l]) => (
-            <button
-              key={v}
-              onClick={() => setView(v)}
-              className={cn(
-                'px-4 py-2 text-xs font-semibold rounded-lg transition-all duration-200',
-                view === v ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
-              )}
-            >
-              {l}
-            </button>
-          ))}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Active</p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">{openCount}</p>
+        </div>
+
+        <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Urgent</p>
+          <p className="text-2xl font-bold text-red-500 mt-1">{urgentCount}</p>
+        </div>
+
+        <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Review</p>
+          <p className="text-2xl font-bold text-purple-500 mt-1">{reviewCount}</p>
+        </div>
+
+        <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">New</p>
+          <p className="text-2xl font-bold text-blue-500 mt-1">{newCount}</p>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-4 mb-6">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <div className="flex bg-gray-100/80 p-1 rounded-xl gap-1 w-fit">
+            {([
+              ['board', 'Board'],
+              ['list', 'List'],
+              ['mine', 'My Tasks'],
+            ] as [ViewMode, string][]).map(([v, l]) => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                className={cn(
+                  'px-4 py-2 text-xs font-semibold rounded-lg transition-all duration-200',
+                  view === v ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                )}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
+
+          <div className="relative w-full lg:max-w-xs">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              className="input pl-9 h-10 text-sm"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search task, assignee, squad..."
+            />
+          </div>
+        </div>
+
+        <div className="bg-white border border-gray-100 rounded-2xl p-3 shadow-sm">
+          <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+            <div className="flex items-center gap-2 text-xs font-bold text-gray-500 uppercase tracking-wider">
+              <SlidersHorizontal size={15} />
+              Filters
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-1">
+              <select
+                className="input h-10 text-xs"
+                value={priorityFilter}
+                onChange={e => setPriorityFilter(e.target.value)}
+              >
+                <option value="ALL">All priorities</option>
+                {TASK_PRIORITIES.map(p => (
+                  <option key={p.key} value={p.key}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                className="input h-10 text-xs"
+                value={squadFilter}
+                onChange={e => setSquadFilter(e.target.value)}
+              >
+                <option value="ALL">All squads</option>
+                {filterOptions.squads.map(squad => (
+                  <option key={squad} value={squad}>
+                    {squad}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                className="input h-10 text-xs"
+                value={statusFilter}
+                onChange={e => setStatusFilter(e.target.value)}
+              >
+                <option value="ALL">All statuses</option>
+                {TASK_STATUSES.map(s => (
+                  <option key={s.key} value={s.key}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {hasFilters && (
+              <Button variant="ghost" size="sm" onClick={clearFilters}>
+                Clear
+              </Button>
+            )}
+          </div>
+
+          <p className="text-xs text-gray-400 mt-3">
+            Showing {filteredTasks.length} of {tasks.length} tasks
+          </p>
         </div>
       </div>
 
@@ -456,10 +702,15 @@ export default function TasksPage() {
         <div className="flex justify-center py-20">
           <Spinner />
         </div>
+      ) : filteredTasks.length === 0 ? (
+        <Empty
+          title="No matching tasks"
+          description={hasFilters ? 'Try changing search or filters' : 'Create a task to get started'}
+        />
       ) : view === 'board' || view === 'mine' ? (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
           {COLUMNS.map(col => {
-            const colTasks = tasks.filter(t => t.status === col.key)
+            const colTasks = filteredTasks.filter(t => t.status === col.key)
 
             return (
               <div key={col.key} className="bg-gray-50/50 border border-gray-100 rounded-2xl p-4">
@@ -477,9 +728,14 @@ export default function TasksPage() {
 
                 <div className="space-y-3 min-h-[200px]">
                   {colTasks.length === 0 && (
-                    <div className="flex flex-col items-center justify-center py-10 opacity-30">
-                      <div className="w-8 h-8 rounded-full border-2 border-dashed border-gray-400 mb-2" />
-                      <p className="text-[10px] font-bold uppercase tracking-widest">No tasks</p>
+                    <div className="flex flex-col items-center justify-center py-10 opacity-50">
+                      <div className="w-8 h-8 rounded-full border-2 border-dashed border-gray-300 mb-2" />
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                        No tasks here
+                      </p>
+                      <p className="text-[10px] text-gray-400 mt-1">
+                        Great, this column is clear
+                      </p>
                     </div>
                   )}
 
@@ -497,8 +753,6 @@ export default function TasksPage() {
             )
           })}
         </div>
-      ) : tasks.length === 0 ? (
-        <Empty title="No tasks yet" description="Create a task to get started" />
       ) : (
         <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
           <table className="w-full text-sm">
@@ -513,9 +767,9 @@ export default function TasksPage() {
             </thead>
 
             <tbody className="divide-y divide-gray-50">
-              {tasks.map((task) => {
+              {filteredTasks.map((task) => {
                 const priority = PRIORITY_MAP[task.priority]
-                const due = (task as any).dueDate ? formatDue((task as any).dueDate) : null
+                const due = getDueBadge(task)
 
                 return (
                   <tr
@@ -529,9 +783,21 @@ export default function TasksPage() {
                           ? <CheckCircle2 size={16} className="text-green-500 flex-shrink-0" />
                           : <Circle size={16} className="text-gray-300 flex-shrink-0" />
                         }
-                        <p className={cn('text-sm font-medium text-gray-700', task.status === 'DONE' && 'line-through text-gray-400')}>
-                          {task.title}
-                        </p>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className={cn('text-sm font-medium text-gray-700', task.status === 'DONE' && 'line-through text-gray-400')}>
+                              {task.title}
+                            </p>
+                            {isNewTask(task) && (
+                              <span className="text-[9px] font-bold bg-blue-600 text-white px-1.5 py-0.5 rounded-full">
+                                New
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-gray-400 uppercase font-bold mt-1">
+                            {task.squad}
+                          </p>
+                        </div>
                       </div>
                     </td>
 
