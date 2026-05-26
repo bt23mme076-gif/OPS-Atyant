@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import type { ChangeEvent } from 'react'
+import type { ChangeEvent, MouseEvent } from 'react'
 import {
   Plus,
   RefreshCw,
@@ -23,6 +23,7 @@ import {
   useCreateTaskMutation,
   useUpdateTaskMutation,
   useDeleteTaskMutation,
+  useSendTaskFollowUpMutation,
 } from '@/store/api/tasksApi'
 import { useGetUsersQuery } from '@/store/api/usersApi'
 import { useCurrentUser } from '@/store/hooks'
@@ -487,11 +488,13 @@ function TaskCard({
   onEdit,
   onMove,
   onDelete,
+  onFollowUp,
 }: {
   task: Task
   onEdit: () => void
   onMove: (status: TaskStatus) => void
   onDelete: () => void
+  onFollowUp: () => void
 }) {
   const priority = PRIORITY_MAP[task.priority]
   const [menuOpen, setMenuOpen] = useState(false)
@@ -499,17 +502,23 @@ function TaskCard({
   const newTask = isNewTask(task)
   const borderClass = PRIORITY_BORDER[task.priority] ?? 'border-l-gray-300'
 
+  function stopCardClick(e: MouseEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+  }
+
   return (
     <div
       className={cn(
         'relative bg-white border border-l-4 border-gray-200 rounded-xl p-3 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-gray-300 transition-all cursor-pointer group',
         borderClass,
-        newTask && 'ring-2 ring-blue-100'
+        newTask && 'ring-2 ring-blue-100',
+        menuOpen && 'z-50'
       )}
       onClick={onEdit}
     >
       {newTask && (
-        <div className="absolute -top-2 -right-2 bg-blue-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm flex items-center gap-1">
+        <div className="absolute -top-2 -right-2 bg-blue-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm flex items-center gap-1 z-10">
           <Sparkles size={10} />
           New
         </div>
@@ -539,24 +548,36 @@ function TaskCard({
           )}
         </div>
 
-        <div className="relative ml-auto" onClick={e => e.stopPropagation()}>
+        <div
+          className="relative ml-auto z-50"
+          onClick={e => e.stopPropagation()}
+          onMouseDown={e => e.stopPropagation()}
+        >
           <button
-            className="opacity-0 group-hover:opacity-100 p-0.5 text-gray-400 hover:text-gray-700 rounded transition-all"
-            onClick={() => setMenuOpen(v => !v)}
+            type="button"
+            className="p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded transition-all opacity-100"
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              setMenuOpen(v => !v)
+            }}
           >
-            <MoreHorizontal size={14} />
+            <MoreHorizontal size={15} />
           </button>
 
           {menuOpen && (
             <div
-              className="absolute right-0 top-5 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-10 min-w-[140px]"
+              className="absolute right-0 top-7 bg-white border border-gray-200 rounded-lg shadow-xl py-1 z-[9999] min-w-[170px]"
               onClick={e => e.stopPropagation()}
+              onMouseDown={e => e.stopPropagation()}
             >
               {TASK_STATUSES.filter(s => s.key !== task.status).map(s => (
                 <button
                   key={s.key}
-                  className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
-                  onClick={() => {
+                  type="button"
+                  className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
+                  onClick={(e) => {
+                    stopCardClick(e)
                     onMove(s.key as TaskStatus)
                     setMenuOpen(false)
                   }}
@@ -564,10 +585,28 @@ function TaskCard({
                   Move to {s.label}
                 </button>
               ))}
+
               <div className="border-t border-gray-100 my-1" />
+
+              {task.status !== 'DONE' && (
+                <button
+                  type="button"
+                  className="w-full text-left px-3 py-2 text-xs text-blue-600 hover:bg-blue-50"
+                  onClick={(e) => {
+                    stopCardClick(e)
+                    onFollowUp()
+                    setMenuOpen(false)
+                  }}
+                >
+                  Send follow-up
+                </button>
+              )}
+
               <button
-                className="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50"
-                onClick={() => {
+                type="button"
+                className="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-red-50"
+                onClick={(e) => {
+                  stopCardClick(e)
                   onDelete()
                   setMenuOpen(false)
                 }}
@@ -621,6 +660,7 @@ export default function TasksPage() {
   const { data: myTasks = [] } = useGetMyTasksQuery()
   const [updateTask] = useUpdateTaskMutation()
   const [deleteTask] = useDeleteTaskMutation()
+  const [sendTaskFollowUp] = useSendTaskFollowUpMutation()
 
   const tasks = (() => {
     if (view === 'mine' || user?.role === ROLES.INTERN) {
@@ -667,19 +707,40 @@ export default function TasksPage() {
     try {
       await updateTask({ id, data: { status } }).unwrap()
       toast.success(`Task moved to ${TASK_STATUSES.find(s => s.key === status)?.label ?? status}`)
-    } catch {
-      toast.error('Failed to move task')
+      refetch()
+    } catch (error: any) {
+      toast.error(error?.data?.message || 'Failed to move task')
     }
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Delete this task?')) return
+    if (!confirm('Are you sure you want to delete this task?')) return
 
     try {
       await deleteTask(id).unwrap()
-      toast.success('Task deleted')
-    } catch {
-      toast.error('Failed to delete')
+      toast.success('Task deleted successfully')
+      refetch()
+    } catch (error: any) {
+      toast.error(error?.data?.message || 'Failed to delete task')
+    }
+  }
+
+  async function handleFollowUp(task: Task) {
+    const defaultMessage = `Reminder: Please complete the task "${task.title}" as soon as possible.`
+    const message = prompt('Enter follow-up message for the intern:', defaultMessage)
+
+    if (message === null) return
+
+    try {
+      await sendTaskFollowUp({
+        id: task.id,
+        message: message.trim() || defaultMessage,
+      }).unwrap()
+
+      toast.success('Follow-up message sent')
+      refetch()
+    } catch (error: any) {
+      toast.error(error?.data?.message || 'Failed to send follow-up')
     }
   }
 
@@ -880,6 +941,7 @@ export default function TasksPage() {
                       onEdit={() => setEditTask(task)}
                       onMove={(status) => moveTask(task.id, status)}
                       onDelete={() => handleDelete(task.id)}
+                      onFollowUp={() => handleFollowUp(task)}
                     />
                   ))}
                 </div>
@@ -892,7 +954,7 @@ export default function TasksPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50/50">
-                {['Task', 'Priority', 'Assigned', 'Due', 'Status', ''].map(h => (
+                {['Task', 'Priority', 'Assigned', 'Due', 'Status', 'Actions'].map(h => (
                   <th key={h} className="text-left px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                     {h}
                   </th>
@@ -976,17 +1038,33 @@ export default function TasksPage() {
                     </td>
 
                     <td className="px-6 py-4 text-right">
-                      <Button
-                        variant="ghost"
-                        size="xs"
-                        onClick={e => {
-                          e.stopPropagation()
-                          handleDelete(task.id)
-                        }}
-                        className="opacity-0 group-hover:opacity-100 text-red-500 hover:bg-red-50 transition-all"
-                      >
-                        Delete
-                      </Button>
+                      <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                        {task.status !== 'DONE' && (
+                          <Button
+                            variant="ghost"
+                            size="xs"
+                            onClick={e => {
+                              e.stopPropagation()
+                              handleFollowUp(task)
+                            }}
+                            className="text-blue-600 hover:bg-blue-50"
+                          >
+                            Follow-up
+                          </Button>
+                        )}
+
+                        <Button
+                          variant="ghost"
+                          size="xs"
+                          onClick={e => {
+                            e.stopPropagation()
+                            handleDelete(task.id)
+                          }}
+                          className="text-red-500 hover:bg-red-50"
+                        >
+                          Delete
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 )

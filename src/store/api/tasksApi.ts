@@ -7,20 +7,43 @@ export const tasksApi = baseApi.injectEndpoints({
       query: (params) => ({ url: '/tasks', params: params || {} }),
       providesTags: ['Task'],
     }),
+
     getMyTasks: b.query<Task[], void>({
       query: () => '/tasks/my',
       providesTags: ['Task'],
     }),
+
     createTask: b.mutation<Task, Partial<Task>>({
       query: (body) => ({ url: '/tasks', method: 'POST', body }),
       invalidatesTags: ['Task'],
     }),
+
     updateTask: b.mutation<Task, { id: string; data: Partial<Task> }>({
-      query: ({ id, data }) => ({ url: `/tasks/${id}`, method: 'PATCH', body: data }),
+      query: ({ id, data }) => ({
+        url: `/tasks/${id}`,
+        method: 'PATCH',
+        body: data,
+      }),
       invalidatesTags: ['Task'],
     }),
-    deleteTask: b.mutation<void, string>({
-      query: (id) => ({ url: `/tasks/${id}`, method: 'DELETE' }),
+
+    deleteTask: b.mutation<{ success: boolean; deletedId?: string }, string>({
+      query: (id) => ({
+        url: `/tasks/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Task'],
+    }),
+
+    sendTaskFollowUp: b.mutation<
+      { success: boolean; message: string },
+      { id: string; message?: string }
+    >({
+      query: ({ id, message }) => ({
+        url: `/tasks/${id}/follow-up`,
+        method: 'POST',
+        body: { message },
+      }),
       invalidatesTags: ['Task'],
     }),
   }),
@@ -28,6 +51,10 @@ export const tasksApi = baseApi.injectEndpoints({
 })
 
 export const {
-  useGetTasksQuery, useGetMyTasksQuery, useCreateTaskMutation,
-  useUpdateTaskMutation, useDeleteTaskMutation,
+  useGetTasksQuery,
+  useGetMyTasksQuery,
+  useCreateTaskMutation,
+  useUpdateTaskMutation,
+  useDeleteTaskMutation,
+  useSendTaskFollowUpMutation,
 } = tasksApi
