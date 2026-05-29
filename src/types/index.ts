@@ -24,6 +24,7 @@ export interface AuthUser {
   lorEligible: boolean
   managerId?: string | null
   avatarUrl?: string | null
+  repoLink?: string | null
   joinDate: string
   createdAt: string
 }
@@ -218,4 +219,3 @@ export interface Notification {
 // ── API Helpers ──────────────────────────────────────────────
 export interface PaginationMeta { total: number; page: number; limit: number; hasMore: boolean }
 export interface ApiResponse<T> { data: T; meta?: PaginationMeta }
-
