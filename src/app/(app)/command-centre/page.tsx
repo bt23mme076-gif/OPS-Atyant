@@ -3,7 +3,7 @@ import { useState, useMemo } from 'react'
 import {
   Users, CheckSquare, TrendingUp, AlertTriangle, Target,
   Plus, RefreshCw, UserX, UserCheck, Search, Filter,
-  BarChart2, Zap, Shield, Code2, Megaphone, FileText,
+  BarChart2, Zap, Shield, Code2, Megaphone, FileText, Copy,
 } from 'lucide-react'
 import {
   useGetUsersQuery, useGetPendingInvitesQuery,
@@ -433,7 +433,7 @@ export default function CommandCentrePage() {
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-2.5">
                         <Avatar name={u.name} size={34}
-                          bg={u.status === 'ACTIVE' ? (squad?.color ?? BRAND) : '#94A3B8'} />
+                           bg={u.status === 'ACTIVE' ? (squad?.color ?? BRAND) : '#94A3B8'} />
                         <div>
                           <p className="font-semibold text-gray-900 text-sm leading-tight">{u.name}</p>
                           <p className="text-[11px] text-gray-400 truncate max-w-[130px]">{u.email}</p>
@@ -480,6 +480,45 @@ export default function CommandCentrePage() {
                       </span>
                       <span>Tasks: <span className="text-gray-600 font-medium">{uDone}/{uTasks.length}</span></span>
                     </div>
+
+                    {/* GitHub Repo Section for Tech Interns */}
+                    {u.role === 'INTERN' && (
+                      <div className="mt-2 pt-2 border-t border-gray-100 flex items-center justify-between text-xs">
+                        <span className="text-gray-400 font-medium flex items-center gap-1">
+                          <Code2 size={12} className="text-gray-400" />
+                          Repo:
+                        </span>
+                        {u.repoLink ? (
+                          <div className="flex items-center gap-2">
+                            <a
+                              href={u.repoLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:underline font-medium text-[11px]"
+                            >
+                              View Repo
+                            </a>
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await navigator.clipboard.writeText(u.repoLink || '')
+                                  toast.success('Repo link copied to clipboard!')
+                                } catch {
+                                  toast.error('Failed to copy repo link')
+                                }
+                              }}
+                              className="text-gray-400 hover:text-gray-600 transition-colors p-0.5 rounded hover:bg-gray-100"
+                              title="Copy URL"
+                              aria-label="Copy Repo Link"
+                            >
+                              <Copy size={12} />
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 italic text-[11px]">No repo added</span>
+                        )}
+                      </div>
+                    )}
 
                     {/* Actions */}
                     {u.role !== 'SUPER_ADMIN' && (
