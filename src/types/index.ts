@@ -4,6 +4,7 @@ export type Squad = 'TECH' | 'OUTREACH' | 'CONTENT' | 'PRODUCT' | 'HR_DESIGN'
 export type UserStatus = 'ACTIVE' | 'INACTIVE' | 'PROBATION' | 'ALUMNI'
 export type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
 export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'REVIEW' | 'DONE' | 'BLOCKED'
+export type TaskReviewStatus = 'SUBMITTED_FOR_REVIEW' | 'APPROVED' | 'CHANGES_REQUESTED'
 export type OutreachType = 'MENTOR' | 'STUDENT'
 export type Channel = 'WHATSAPP' | 'LINKEDIN' | 'INSTAGRAM' | 'EMAIL'
 export type OutreachStatus = 'NOT_CONTACTED' | 'CONTACTED' | 'INTERESTED' | 'SIGNED_UP' | 'REJECTED'
@@ -25,6 +26,7 @@ export interface AuthUser {
   managerId?: string | null
   avatarUrl?: string | null
   repoLink?: string | null
+  githubUsername?: string | null
   joinDate: string
   createdAt: string
 }
@@ -69,11 +71,9 @@ export interface Mentor {
   assignedTo?: AuthUser | null
   createdAt: string
   updatedAt: string
-  // Legacy specific
   legacyEducation?: any[]
   services?: { video: boolean; audio: boolean; chat: boolean }
 }
-
 
 // ── Student ──────────────────────────────────────────────────
 export type StudentStage =
@@ -99,7 +99,6 @@ export interface Student {
   createdAt: string
   updatedAt: string
 }
-
 
 // ── Session ──────────────────────────────────────────────────
 export interface Session {
@@ -134,6 +133,16 @@ export interface Task {
   dueDate: string
   proofLink?: string | null
   feedback?: string | null
+
+  submissionPrLink?: string | null
+  submissionDocLink?: string | null
+  submissionSummary?: string | null
+  submissionBlockers?: string | null
+  submittedAt?: string | null
+  reviewStatus?: TaskReviewStatus | string | null
+  reviewFeedback?: string | null
+  reviewedAt?: string | null
+
   points: number
   createdAt: string
   updatedAt: string

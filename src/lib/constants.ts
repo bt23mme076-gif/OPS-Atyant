@@ -55,7 +55,7 @@ export const TASK_PRIORITIES = [
 export const TASK_STATUSES = [
   { key: 'TODO', label: 'To Do', color: '#6B7280' },
   { key: 'IN_PROGRESS', label: 'In Progress', color: '#3B82F6' },
-  { key: 'REVIEW', label: 'Review', color: '#8B5CF6' },
+  { key: 'REVIEW', label: 'Submitted for Review', color: '#8B5CF6' },
   { key: 'DONE', label: 'Done', color: '#10B981' },
   { key: 'BLOCKED', label: 'Blocked', color: '#EF4444' },
 ] as const
@@ -87,5 +87,3 @@ export const NAV_ITEMS = [
     ]
   },
 ]
-
-
