@@ -25,7 +25,8 @@ export interface AuthUser {
   managerId?: string | null
   avatarUrl?: string | null
   repoLink?: string | null
-  githubUsername?: string | null
+  whatsappNumber?: string | null   // ← NEW
+  linkedinUrl?: string | null      // ← NEW
   joinDate: string
   createdAt: string
 }
@@ -70,11 +71,9 @@ export interface Mentor {
   assignedTo?: AuthUser | null
   createdAt: string
   updatedAt: string
-  // Legacy specific
   legacyEducation?: any[]
   services?: { video: boolean; audio: boolean; chat: boolean }
 }
-
 
 // ── Student ──────────────────────────────────────────────────
 export type StudentStage =
@@ -100,7 +99,6 @@ export interface Student {
   createdAt: string
   updatedAt: string
 }
-
 
 // ── Session ──────────────────────────────────────────────────
 export interface Session {
