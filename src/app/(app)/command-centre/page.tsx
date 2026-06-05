@@ -3,7 +3,7 @@ import { useState, useMemo } from 'react'
 import {
   Users, CheckSquare, TrendingUp, AlertTriangle, Target,
   Plus, RefreshCw, UserX, UserCheck, Search, Filter,
-  BarChart2, Zap, Shield, Code2, Megaphone, FileText, Copy,
+  BarChart2, Zap, Shield, Code2, Megaphone, FileText, Copy, Phone, Linkedin, ExternalLink,
 } from 'lucide-react'
 import {
   useGetUsersQuery, useGetPendingInvitesQuery,
@@ -481,73 +481,70 @@ export default function CommandCentrePage() {
                       <span>Tasks: <span className="text-gray-600 font-medium">{uDone}/{uTasks.length}</span></span>
                     </div>
 
-                    {/* GitHub Repo Section for Tech Interns */}
-                    {u.role === 'INTERN' && u.squad === 'TECH' && (
-                      <div className="mt-2 pt-2 border-t border-gray-100 space-y-2 text-xs">
-
-                        {/* Username */}
-                        <div className="flex items-center justify-between">
-                         <span className="text-gray-400 font-medium flex items-center gap-1">
-                           <Code2 size={12} />
-                            GitHub:
-                         </span>
-
-                         {u.githubUsername ? (
-                           <a
-                            href={`https://github.com/${u.githubUsername}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:underline font-medium"
-                           >
-                             @{u.githubUsername}
-                           </a>
-                         ) : (
-                           <span className="text-gray-400 italic">
-                            Not added
-                           </span>
-                      )}
-                       </div>
-
-                          {/* Repository */}
-                       <div className="flex items-center justify-between">
-                          <span className="text-gray-400 font-medium flex items-center gap-1">
-                             <Code2 size={12} />
-                              Repo:
-                          </span>
-
-                          {u.repoLink ? (
-                           <div className="flex items-center gap-2">
-                             <a
-                               href={u.repoLink}
-                               target="_blank"
-                               rel="noopener noreferrer"
-                                className="text-blue-600 hover:underline font-medium text-[11px]"
-                              >
-                               View Repo
-                              </a>
-
-                              <button
-                                 onClick={async () => {
-                                   try {
-                                    await navigator.clipboard.writeText(u.repoLink || '')
-                                     toast.success('Repo link copied!')
-                                 } catch {
-                                  toast.error('Failed to copy')
-                                 }
-                               }}
-                               className="text-gray-400 hover:text-gray-600"
-                             >
-                              <Copy size={12} />
-                             </button>
+                    {/* Contact Info Section - visible to managers/admins */}
+                    {u.role === 'INTERN' && (u.whatsappNumber || u.linkedinUrl || u.repoLink) && (
+                      <div className="mt-2 pt-2 border-t border-gray-100 space-y-1.5">
+                        {u.whatsappNumber && (
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="text-gray-400 flex items-center gap-1">
+                              <Phone size={11} className="text-green-500" /> WhatsApp
+                            </span>
+                            <a
+                              href={`https://wa.me/${u.whatsappNumber.replace(/\D/g, '')}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-green-600 font-semibold hover:underline"
+                            >
+                              {u.whatsappNumber}
+                            </a>
                           </div>
-                        ) : (
-                         <span className="text-gray-400 italic">
-                           No repo added
-                         </span>
+                        )}
+                        {u.linkedinUrl && (
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="text-gray-400 flex items-center gap-1">
+                              <Linkedin size={11} className="text-blue-600" /> LinkedIn
+                            </span>
+                            <a
+                              href={u.linkedinUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 font-semibold hover:underline flex items-center gap-0.5"
+                            >
+                              View Profile <ExternalLink size={10} />
+                            </a>
+                          </div>
+                        )}
+                        {u.repoLink && (
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="text-gray-400 flex items-center gap-1">
+                              <Code2 size={11} className="text-gray-400" /> Repo
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <a
+                                href={u.repoLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 font-semibold hover:underline"
+                              >
+                                View Repo
+                              </a>
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    await navigator.clipboard.writeText(u.repoLink || '')
+                                    toast.success('Repo link copied!')
+                                  } catch {
+                                    toast.error('Failed to copy')
+                                  }
+                                }}
+                                className="text-gray-400 hover:text-gray-600 transition-colors p-0.5 rounded hover:bg-gray-100"
+                              >
+                                <Copy size={11} />
+                              </button>
+                            </div>
+                          </div>
                         )}
                       </div>
-
-                     </div>
                     )}
 
                     {/* Actions */}
