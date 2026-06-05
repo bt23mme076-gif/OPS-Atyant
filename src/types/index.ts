@@ -25,6 +25,7 @@ export interface AuthUser {
   managerId?: string | null
   avatarUrl?: string | null
   repoLink?: string | null
+  githubUsername?: string | null
   joinDate: string
   createdAt: string
 }

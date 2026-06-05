@@ -482,42 +482,72 @@ export default function CommandCentrePage() {
                     </div>
 
                     {/* GitHub Repo Section for Tech Interns */}
-                    {u.role === 'INTERN' && (
-                      <div className="mt-2 pt-2 border-t border-gray-100 flex items-center justify-between text-xs">
-                        <span className="text-gray-400 font-medium flex items-center gap-1">
-                          <Code2 size={12} className="text-gray-400" />
-                          Repo:
-                        </span>
-                        {u.repoLink ? (
-                          <div className="flex items-center gap-2">
-                            <a
-                              href={u.repoLink}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-600 hover:underline font-medium text-[11px]"
-                            >
-                              View Repo
-                            </a>
-                            <button
-                              onClick={async () => {
-                                try {
-                                  await navigator.clipboard.writeText(u.repoLink || '')
-                                  toast.success('Repo link copied to clipboard!')
-                                } catch {
-                                  toast.error('Failed to copy repo link')
-                                }
-                              }}
-                              className="text-gray-400 hover:text-gray-600 transition-colors p-0.5 rounded hover:bg-gray-100"
-                              title="Copy URL"
-                              aria-label="Copy Repo Link"
-                            >
+                    {u.role === 'INTERN' && u.squad === 'TECH' && (
+                      <div className="mt-2 pt-2 border-t border-gray-100 space-y-2 text-xs">
+
+                        {/* Username */}
+                        <div className="flex items-center justify-between">
+                         <span className="text-gray-400 font-medium flex items-center gap-1">
+                           <Code2 size={12} />
+                            GitHub:
+                         </span>
+
+                         {u.githubUsername ? (
+                           <a
+                            href={`https://github.com/${u.githubUsername}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline font-medium"
+                           >
+                             @{u.githubUsername}
+                           </a>
+                         ) : (
+                           <span className="text-gray-400 italic">
+                            Not added
+                           </span>
+                      )}
+                       </div>
+
+                          {/* Repository */}
+                       <div className="flex items-center justify-between">
+                          <span className="text-gray-400 font-medium flex items-center gap-1">
+                             <Code2 size={12} />
+                              Repo:
+                          </span>
+
+                          {u.repoLink ? (
+                           <div className="flex items-center gap-2">
+                             <a
+                               href={u.repoLink}
+                               target="_blank"
+                               rel="noopener noreferrer"
+                                className="text-blue-600 hover:underline font-medium text-[11px]"
+                              >
+                               View Repo
+                              </a>
+
+                              <button
+                                 onClick={async () => {
+                                   try {
+                                    await navigator.clipboard.writeText(u.repoLink || '')
+                                     toast.success('Repo link copied!')
+                                 } catch {
+                                  toast.error('Failed to copy')
+                                 }
+                               }}
+                               className="text-gray-400 hover:text-gray-600"
+                             >
                               <Copy size={12} />
-                            </button>
+                             </button>
                           </div>
                         ) : (
-                          <span className="text-gray-400 italic text-[11px]">No repo added</span>
+                         <span className="text-gray-400 italic">
+                           No repo added
+                         </span>
                         )}
                       </div>
+
+                     </div>
                     )}
 
                     {/* Actions */}
