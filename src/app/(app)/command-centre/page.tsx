@@ -31,6 +31,7 @@ const SQUADS = [
   { id: 'CONTENT',   label: 'Content',   icon: FileText,  color: CYAN    },
   { id: 'PRODUCT',   label: 'Product',   icon: Target,    color: WARN    },
   { id: 'HR_DESIGN', label: 'HR/Design', icon: Shield,    color: SUCCESS },
+  { id: 'CBM',       label: 'Campus Brand Manager', icon: Megaphone, color: '#EC4899' },
 ] as const
 
 const ROLE_META: Record<string, { label: string; bg: string; color: string }> = {
