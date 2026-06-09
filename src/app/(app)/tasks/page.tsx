@@ -116,6 +116,165 @@ function getWorkloadMeta(count: number) {
   }
 }
 
+const normalize = (value?: string | null) =>
+  String(value ?? '')
+    .trim()
+    .toUpperCase()
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+
+const getUserId = (user: any) =>
+  user.id ?? user._id ?? user.userId ?? ''
+
+const getUserName = (user: any) =>
+  user.name ?? user.fullName ?? user.username ?? user.email ?? 'Unnamed User'
+
+const getUserRole = (user: any) =>
+  normalize(user.role ?? user.userRole ?? user.type)
+
+const getUserSquad = (user: any) =>
+  normalize(user.squad ?? user.team ?? user.department ?? user.category ?? user.domain)
+
+const getSearchText = (user: any) =>
+  normalize([
+    user.squad,
+    user.team,
+    user.department,
+    user.category,
+    user.domain,
+    user.role,
+    user.userRole,
+    user.type,
+    user.position,
+    user.designation,
+    user.title,
+    user.name,
+    user.fullName,
+    user.email
+  ].filter(Boolean).join(' '))
+
+const isInternUser = (user: any) => {
+  const role = getUserRole(user)
+  const text = getSearchText(user)
+
+  return (
+    role === normalize(ROLES.INTERN) ||
+    role.includes('INTERN') ||
+    text.includes('INTERN') ||
+    text.includes('STUDENT')
+  )
+}
+
+const SQUAD_ALIASES: Record<string, string[]> = {
+  TECH: [
+    'TECH',
+    'TECH TEAM',
+    'TECHNICAL',
+    'TECHNICAL TEAM',
+    'WEB DEV',
+    'WEBDEV',
+    'WEB DEVELOPMENT',
+    'DEVELOPER',
+    'DEVELOPMENT'
+  ],
+  OUTREACH: [
+    'OUTREACH',
+    'OUTREACH TEAM',
+    'OUTREACH INTERN',
+    'MARKETING',
+    'MARKETING TEAM',
+    'SALES',
+    'SALES TEAM',
+    'LEAD',
+    'LEADS',
+    'LEAD GENERATION',
+    'COMMUNITY',
+    'PROMOTION',
+    'CAMPUS',
+    'RELATIONS'
+  ],
+  CONTENT: [
+    'CONTENT',
+    'CONTENT TEAM',
+    'CONTENT INTERN',
+    'WRITER',
+    'WRITING',
+    'COPYWRITER',
+    'COPY WRITER',
+    'COPYWRITING',
+    'SOCIAL MEDIA',
+    'SCRIPT',
+    'BLOG',
+    'POST',
+    'CREATIVE'
+  ],
+  PRODUCT: [
+    'PRODUCT',
+    'PRODUCT TEAM',
+    'PRODUCT INTERN',
+    'PRODUCT STRATEGY',
+    'STRATEGY',
+    'OPERATIONS',
+    'OPS',
+    'RESEARCH',
+    'ANALYST',
+    'BUSINESS',
+    'FEATURE'
+  ],
+  'HR DESIGN': [
+    'HR DESIGN',
+    'HR',
+    'HUMAN RESOURCE',
+    'HUMAN RESOURCES',
+    'DESIGN',
+    'DESIGN TEAM',
+    'UI',
+    'UX',
+    'UI UX',
+    'GRAPHIC',
+    'GRAPHIC DESIGN',
+    'DESIGNER'
+  ]
+}
+
+const getSquadKey = (value?: string | null) => {
+  const selected = normalize(value)
+
+  if (!selected) return ''
+
+  if (selected.includes('HR') && selected.includes('DESIGN')) return 'HR DESIGN'
+
+  const direct = Object.keys(SQUAD_ALIASES).find(key => normalize(key) === selected)
+
+  if (direct) return direct
+
+  const matched = Object.entries(SQUAD_ALIASES).find(([_, aliases]) =>
+    aliases.some(alias => selected === normalize(alias) || selected.includes(normalize(alias)))
+  )
+
+  return matched?.[0] ?? selected
+}
+
+const userMatchesSquad = (user: any, selectedSquad: string) => {
+  const squadKey = getSquadKey(selectedSquad)
+  const userSquad = getUserSquad(user)
+  const userText = getSearchText(user)
+
+  if (!squadKey) return true
+
+  const aliases = SQUAD_ALIASES[squadKey] ?? [squadKey]
+
+  return aliases.some(alias => {
+    const normalAlias = normalize(alias)
+
+    return (
+      userSquad === normalAlias ||
+      userSquad.includes(normalAlias) ||
+      userText.includes(normalAlias)
+    )
+  })
+}
+
 function TaskModal({
   open,
   onClose,
@@ -146,10 +305,25 @@ function TaskModal({
   const f = (k: string) => (e: ChangeEvent<any>) =>
     setForm(p => ({ ...p, [k]: e.target.value }))
 
-  const assignableUsers = users.filter(u => {
-    if (!form.squad) return false
-    return u.role === ROLES.INTERN && u.squad === form.squad
-  })
+  const selectedSquadKey = getSquadKey(form.squad)
+
+  const internUsers = useMemo(() => {
+    return users
+      .filter((u: any) => isInternUser(u))
+      .filter((u: any) => getUserId(u))
+  }, [users])
+
+  const exactSquadUsers = useMemo(() => {
+    return internUsers.filter((u: any) => userMatchesSquad(u, form.squad))
+  }, [internUsers, form.squad])
+
+  const assignableUsers = useMemo(() => {
+    if (!form.squad) return internUsers
+
+    if (exactSquadUsers.length > 0) return exactSquadUsers
+
+    return []
+  }, [form.squad, internUsers, exactSquadUsers])
 
   const selectedUser = users.find(u => u.id === form.assignedToId)
   const selectedUserActiveTasks = selectedUser
@@ -336,21 +510,24 @@ function TaskModal({
                     : 'Select intern'}
               </option>
 
-              {assignableUsers.map(u => {
-                const activeCount = getActiveTaskCount(allTasks, u.id)
+              {assignableUsers.map((u: any) => {
+                const userId = getUserId(u)
+                const userName = getUserName(u)
+                const userSquad = getUserSquad(u)
+                const activeCount = getActiveTaskCount(allTasks, userId)
                 const workload = getWorkloadMeta(activeCount)
 
                 return (
-                  <option key={u.id} value={u.id}>
-                    {workload.emoji} {u.name} — {u.squad} — {activeCount === 0 ? 'Available' : `${activeCount} active task${activeCount > 1 ? 's' : ''}`}
+                  <option key={userId} value={userId}>
+                    {workload.emoji} {userName} {userSquad ? `— ${userSquad}` : ''} — {activeCount === 0 ? 'Available' : `${activeCount} active task${activeCount > 1 ? 's' : ''}`}
                   </option>
                 )
               })}
             </select>
 
             {form.squad && assignableUsers.length === 0 && (
-              <p className="mt-1 text-xs text-red-500">
-                No active interns found in {form.squad}. Please add interns to this squad from Command Centre.
+              <p className="mt-1 text-[11px] text-red-500">
+                No intern users found for {selectedSquadKey || form.squad}. Please check if those interns are added with correct squad details.
               </p>
             )}
 
@@ -601,7 +778,6 @@ function TaskCard({
                   Send follow-up
                 </button>
               )}
-
               <button
                 type="button"
                 className="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-red-50"
@@ -668,7 +844,7 @@ export default function TasksPage() {
     }
 
     if (user?.role === ROLES.MANAGER) {
-      return allTasks
+      return allTasks.filter(t => getSquadKey(t.squad) === getSquadKey(user.squad))
     }
 
     return allTasks
@@ -916,6 +1092,7 @@ export default function TasksPage() {
                       {col.label}
                     </span>
                   </div>
+
                   <span className="text-[10px] font-bold text-gray-400 bg-white border border-gray-100 rounded-full px-2 py-0.5">
                     {colTasks.length}
                   </span>
