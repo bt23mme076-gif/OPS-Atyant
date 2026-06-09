@@ -3,14 +3,15 @@ import { useState, useMemo } from 'react'
 import {
   Users, CheckSquare, TrendingUp, AlertTriangle, Target,
   Plus, RefreshCw, UserX, UserCheck, Search, Filter,
-  BarChart2, Zap, Shield, Code2, Megaphone, FileText, Copy, Phone, Linkedin, ExternalLink,
+  BarChart2, Zap, Shield, Code2, Megaphone, FileText, Copy, Phone, Linkedin, ExternalLink, Trash2,
 } from 'lucide-react'
 import {
   useGetUsersQuery, useGetPendingInvitesQuery,
   useUpdateUserMutation, useRevokeInviteMutation,
-  useInviteUserMutation,
+  useInviteUserMutation, useDeleteUserMutation,
 } from '@/store/api/usersApi'
 import { useGetTasksQuery } from '@/store/api/tasksApi'
+import { useCurrentUser } from '@/store/hooks'
 import { Avatar, Badge, Button, Spinner, Modal } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
@@ -198,6 +199,9 @@ export default function CommandCentrePage() {
 
   const [updateUser]   = useUpdateUserMutation()
   const [revokeInvite] = useRevokeInviteMutation()
+  const [deleteUser]   = useDeleteUserMutation()
+  const currentUser    = useCurrentUser()
+  const canDelete      = currentUser?.role === 'SUPER_ADMIN'
 
   // ── derived stats ──────────────────────────────────────────────────────────
   const activeCount   = users.filter(u => u.status === 'ACTIVE').length
@@ -242,6 +246,18 @@ export default function CommandCentrePage() {
       await updateUser({ id, data: { squad: newSquad } }).unwrap()
       toast.success(`${name} moved to ${SQUADS.find(s => s.id === newSquad)?.label}`)
     } catch { toast.error('Failed to update squad') }
+  }
+
+  async function handleDelete(id: string, name: string) {
+    if (!confirm(`Permanently delete ${name}? This cannot be undone.\n\nIf they've created or are assigned to records (mentors, tasks, sessions), deletion will be blocked — deactivate instead.`)) return
+    if (!confirm(`Final confirmation — delete ${name} for good?`)) return
+    try {
+      await deleteUser(id).unwrap()
+      toast.success(`${name} deleted`)
+    } catch (err: any) {
+      const msg = err?.data?.message
+      toast.error(typeof msg === 'string' ? msg : `Couldn't delete ${name} — they may have linked records. Deactivate instead.`)
+    }
   }
 
   async function handleRevoke(id: string, email: string) {
@@ -572,6 +588,13 @@ export default function CommandCentrePage() {
                               className="flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-md border transition-all"
                               style={{ borderColor: WARN + '44', background: WARN + '10', color: WARN }}>
                               <AlertTriangle size={10} /> Probation
+                            </button>
+                          )}
+                          {canDelete && (
+                            <button onClick={() => handleDelete(u.id, u.name)}
+                              className="flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-md border transition-all"
+                              style={{ borderColor: '#DC262644', background: '#FEF2F2', color: '#DC2626' }}>
+                              <Trash2 size={10} /> Delete
                             </button>
                           )}
                         </div>

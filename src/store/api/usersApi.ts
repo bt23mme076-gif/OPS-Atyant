@@ -41,6 +41,10 @@ export const usersApi = baseApi.injectEndpoints({
       query: ({ id, data }) => ({ url: `/users/${id}`, method: 'PATCH', body: data }),
       invalidatesTags: ['User'],
     }),
+    deleteUser: b.mutation<void, string>({
+      query: (id) => ({ url: `/users/${id}`, method: 'DELETE' }),
+      invalidatesTags: ['User'],
+    }),
   }),
   overrideExisting: false,
 })
@@ -53,4 +57,5 @@ export const {
   useReactivateUserMutation,
   useRevokeInviteMutation,
   useUpdateUserMutation,
+  useDeleteUserMutation,
 } = usersApi
