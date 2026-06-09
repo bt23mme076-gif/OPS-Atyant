@@ -186,6 +186,90 @@ export interface ContentPiece {
   updatedAt: string
 }
 
+// ── LinkedIn Growth Engine ───────────────────────────────────
+export type LinkedinPostFormat =
+  | 'text' | 'image' | 'carousel' | 'video' | 'poll' | 'document' | 'repost'
+
+export type LinkedinPostStatus =
+  | 'idea' | 'draft' | 'scheduled' | 'published' | 'archived'
+
+export type LinkedinLeadType =
+  | 'student' | 'mentor' | 'college_tpo' | 'partner' | 'investor' | 'other'
+
+export type LinkedinLeadStage =
+  | 'new' | 'engaged' | 'in_conversation' | 'qualified' | 'converted' | 'lost'
+
+export type LinkedinEngagementType =
+  | 'comment' | 'reaction' | 'dm' | 'connection_request' | 'profile_view' | 'inbound'
+
+export interface LinkedinPost {
+  id: string
+  title: string
+  topic?: string | null
+  hook?: string | null
+  body?: string | null
+  format: LinkedinPostFormat
+  status: LinkedinPostStatus
+  authorId?: string | null
+  assignedToId?: string | null
+  postUrl?: string | null
+  scheduledFor?: string | null
+  publishedAt?: string | null
+  impressions: number
+  reactions: number
+  comments: number
+  reposts: number
+  profileViews: number
+  followersGained: number
+  leadsGenerated: number
+  engagementRate?: number
+  notes?: string | null
+  createdBy: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface LinkedinLead {
+  id: string
+  name: string
+  headline?: string | null
+  linkedinUrl?: string | null
+  email?: string | null
+  phone?: string | null
+  leadType: LinkedinLeadType
+  stage: LinkedinLeadStage
+  sourcePostId?: string | null
+  engagementType?: LinkedinEngagementType | null
+  assignedToId?: string | null
+  convertedToType?: 'mentor' | 'student' | null
+  convertedToId?: string | null
+  convertedAt?: string | null
+  notes?: string | null
+  createdBy: string
+  lastActivityAt?: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface LinkedinStats {
+  cadence: { postedThisWeek: number; weeklyTarget: number; onTrack: boolean }
+  totals: {
+    posts: number
+    published: number
+    drafts: number
+    scheduled: number
+    impressions: number
+    interactions: number
+    followersGained: number
+    leads: number
+    converted: number
+  }
+  engagementRate: number
+  leadsPerPost: number
+  conversionRate: number
+  formatPerformance: { format: string; posts: number; engagementRate: number }[]
+}
+
 // ── Dashboard ────────────────────────────────────────────────
 export interface DashboardStats {
   totalMentors: number

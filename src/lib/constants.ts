@@ -60,6 +60,35 @@ export const TASK_STATUSES = [
   { key: 'BLOCKED', label: 'Blocked', color: '#EF4444' },
 ] as const
 
+export const LINKEDIN_POST_STATUSES = [
+  { key: 'idea', label: 'Idea', color: '#6366F1', bgColor: '#EEF2FF', textColor: '#4338CA' },
+  { key: 'draft', label: 'Draft', color: '#8B5CF6', bgColor: '#F5F3FF', textColor: '#7C3AED' },
+  { key: 'scheduled', label: 'Scheduled', color: '#F97316', bgColor: '#FFF7ED', textColor: '#C2410C' },
+  { key: 'published', label: 'Published ✓', color: '#16A34A', bgColor: '#F0FDF4', textColor: '#15803D' },
+  { key: 'archived', label: 'Archived', color: '#6B7280', bgColor: '#F9FAFB', textColor: '#4B5563' },
+] as const
+
+export const LINKEDIN_POST_FORMATS = [
+  'text', 'image', 'carousel', 'video', 'poll', 'document', 'repost',
+] as const
+
+export const LINKEDIN_LEAD_STAGES = [
+  { key: 'new', label: 'New', color: '#6366F1', bgColor: '#EEF2FF', textColor: '#4338CA' },
+  { key: 'engaged', label: 'Engaged', color: '#8B5CF6', bgColor: '#F5F3FF', textColor: '#7C3AED' },
+  { key: 'in_conversation', label: 'In Conversation', color: '#0EA5E9', bgColor: '#F0F9FF', textColor: '#0369A1' },
+  { key: 'qualified', label: 'Qualified', color: '#F97316', bgColor: '#FFF7ED', textColor: '#C2410C' },
+  { key: 'converted', label: 'Converted ✓', color: '#16A34A', bgColor: '#F0FDF4', textColor: '#15803D' },
+  { key: 'lost', label: 'Lost', color: '#DC2626', bgColor: '#FEF2F2', textColor: '#B91C1C' },
+] as const
+
+export const LINKEDIN_LEAD_TYPES = [
+  'student', 'mentor', 'college_tpo', 'partner', 'investor', 'other',
+] as const
+
+export const LINKEDIN_ENGAGEMENT_TYPES = [
+  'comment', 'reaction', 'dm', 'connection_request', 'profile_view', 'inbound',
+] as const
+
 export const NAV_ITEMS = [
   {
     section: 'Overview', items: [
@@ -71,6 +100,11 @@ export const NAV_ITEMS = [
       { href: '/mentors', label: 'Mentors', icon: 'Users', roles: [ROLES.SUPER_ADMIN, ROLES.MANAGER] },
       { href: '/students', label: 'Students', icon: 'GraduationCap', roles: [ROLES.SUPER_ADMIN, ROLES.MANAGER] },
       { href: '/sessions', label: 'Sessions', icon: 'Video', roles: [ROLES.SUPER_ADMIN, ROLES.MANAGER] },
+    ]
+  },
+  {
+    section: 'Growth', items: [
+      { href: '/linkedin', label: 'LinkedIn', icon: 'Linkedin', roles: [ROLES.SUPER_ADMIN, ROLES.MANAGER, ROLES.INTERN] },
     ]
   },
   {

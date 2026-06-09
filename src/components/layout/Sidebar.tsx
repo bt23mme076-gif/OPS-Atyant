@@ -14,6 +14,7 @@ import {
   Bell,
   LayoutGrid,
   Sparkles,
+  Linkedin,
 } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
 import { useAppDispatch, useCurrentUser } from '@/store/hooks'
@@ -31,6 +32,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ size?: number; className?: 
   Shield,
   Settings,
   LayoutGrid,
+  Linkedin,
 }
 
 interface SidebarProps {
