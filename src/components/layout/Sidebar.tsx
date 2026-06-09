@@ -14,6 +14,7 @@ import {
   Bell,
   LayoutGrid,
   Sparkles,
+  X,
 } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
 import { useAppDispatch, useCurrentUser } from '@/store/hooks'

@@ -31,7 +31,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
         <StatCard label="Total Mentors"     value={data?.totalMentors ?? '—'}     icon={<Users size={18} />}          color="#2563EB" />
         <StatCard label="Active Mentors"    value={data?.activeMentors ?? '—'}    icon={<TrendingUp size={18} />}     color="#16A34A" />
         <StatCard label="Total Students"    value={data?.totalStudents ?? '—'}    icon={<GraduationCap size={18} />}  color="#7C3AED" />

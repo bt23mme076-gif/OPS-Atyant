@@ -20,7 +20,7 @@ export default function SessionsPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Sessions</h1>
           <p className="text-sm text-gray-500 mt-0.5">{sessions.length} total</p>
@@ -31,7 +31,7 @@ export default function SessionsPage() {
         </div>
       </div>
 
-      <div className="flex gap-1 mb-4">
+      <div className="flex gap-1 mb-4 flex-wrap">
         {['all', 'scheduled', 'completed', 'cancelled', 'no_show'].map(s => (
           <button key={s} onClick={() => setStatus(s)}
             className={cn('px-3 py-1.5 text-xs rounded-md font-medium transition-all capitalize', statusFilter === s ? 'bg-gray-900 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-gray-300')}>
@@ -42,7 +42,7 @@ export default function SessionsPage() {
 
       {isLoading ? <div className="flex justify-center py-16"><Spinner /></div> :
        filtered.length === 0 ? <Empty title="No sessions found" /> : (
-        <div className="card overflow-hidden">
+        <div className="card overflow-x-auto whitespace-nowrap">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100">
