@@ -16,6 +16,9 @@ import {
   AlertTriangle,
   Copy,
   MessageSquareText,
+  ExternalLink,
+  Send,
+  ClipboardCheck,
 } from 'lucide-react'
 import {
   useGetTasksQuery,
@@ -116,6 +119,336 @@ function getWorkloadMeta(count: number) {
   }
 }
 
+const normalize = (value?: string | null) =>
+  String(value ?? '')
+    .trim()
+    .toUpperCase()
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+
+const getUserId = (user: any) =>
+  user.id ?? user._id ?? user.userId ?? ''
+
+const getUserName = (user: any) =>
+  user.name ?? user.fullName ?? user.username ?? user.email ?? 'Unnamed User'
+
+const getUserRole = (user: any) =>
+  normalize(user.role ?? user.userRole ?? user.type)
+
+const getUserSquad = (user: any) =>
+  normalize(user.squad ?? user.team ?? user.department ?? user.category ?? user.domain)
+
+const getSearchText = (user: any) =>
+  normalize([
+    user.squad,
+    user.team,
+    user.department,
+    user.category,
+    user.domain,
+    user.role,
+    user.userRole,
+    user.type,
+    user.position,
+    user.designation,
+    user.title,
+    user.name,
+    user.fullName,
+    user.email
+  ].filter(Boolean).join(' '))
+
+const isInternUser = (user: any) => {
+  const role = getUserRole(user)
+  const text = getSearchText(user)
+
+  return (
+    role === normalize(ROLES.INTERN) ||
+    role.includes('INTERN') ||
+    text.includes('INTERN') ||
+    text.includes('STUDENT')
+  )
+}
+
+const SQUAD_ALIASES: Record<string, string[]> = {
+  TECH: [
+    'TECH',
+    'TECH TEAM',
+    'TECHNICAL',
+    'TECHNICAL TEAM',
+    'WEB DEV',
+    'WEBDEV',
+    'WEB DEVELOPMENT',
+    'DEVELOPER',
+    'DEVELOPMENT'
+  ],
+  OUTREACH: [
+    'OUTREACH',
+    'OUTREACH TEAM',
+    'OUTREACH INTERN',
+    'MARKETING',
+    'MARKETING TEAM',
+    'SALES',
+    'SALES TEAM',
+    'LEAD',
+    'LEADS',
+    'LEAD GENERATION',
+    'COMMUNITY',
+    'PROMOTION',
+    'CAMPUS',
+    'RELATIONS'
+  ],
+  CONTENT: [
+    'CONTENT',
+    'CONTENT TEAM',
+    'CONTENT INTERN',
+    'WRITER',
+    'WRITING',
+    'COPYWRITER',
+    'COPY WRITER',
+    'COPYWRITING',
+    'SOCIAL MEDIA',
+    'SCRIPT',
+    'BLOG',
+    'POST',
+    'CREATIVE'
+  ],
+  PRODUCT: [
+    'PRODUCT',
+    'PRODUCT TEAM',
+    'PRODUCT INTERN',
+    'PRODUCT STRATEGY',
+    'STRATEGY',
+    'OPERATIONS',
+    'OPS',
+    'RESEARCH',
+    'ANALYST',
+    'BUSINESS',
+    'FEATURE'
+  ],
+  'HR DESIGN': [
+    'HR DESIGN',
+    'HR',
+    'HUMAN RESOURCE',
+    'HUMAN RESOURCES',
+    'DESIGN',
+    'DESIGN TEAM',
+    'UI',
+    'UX',
+    'UI UX',
+    'GRAPHIC',
+    'GRAPHIC DESIGN',
+    'DESIGNER'
+  ]
+}
+
+const getSquadKey = (value?: string | null) => {
+  const selected = normalize(value)
+
+  if (!selected) return ''
+
+  if (selected.includes('HR') && selected.includes('DESIGN')) return 'HR DESIGN'
+
+  const direct = Object.keys(SQUAD_ALIASES).find(key => normalize(key) === selected)
+
+  if (direct) return direct
+
+  const matched = Object.entries(SQUAD_ALIASES).find(([_, aliases]) =>
+    aliases.some(alias => selected === normalize(alias) || selected.includes(normalize(alias)))
+  )
+
+  return matched?.[0] ?? selected
+}
+
+const userMatchesSquad = (user: any, selectedSquad: string) => {
+  const squadKey = getSquadKey(selectedSquad)
+  const userSquad = getUserSquad(user)
+  const userText = getSearchText(user)
+
+  if (!squadKey) return true
+
+  const aliases = SQUAD_ALIASES[squadKey] ?? [squadKey]
+
+  return aliases.some(alias => {
+    const normalAlias = normalize(alias)
+
+    return (
+      userSquad === normalAlias ||
+      userSquad.includes(normalAlias) ||
+      userText.includes(normalAlias)
+    )
+  })
+}
+
+function getSubmission(task?: Task) {
+  if (!task) {
+    return {
+      prLink: '',
+      docLink: '',
+      summary: '',
+      blockers: '',
+      feedback: '',
+      submittedAt: '',
+    }
+  }
+
+  return {
+    prLink: (task as any)?.submissionPrLink ?? (task as any)?.proofLink ?? '',
+    docLink: (task as any)?.submissionDocLink ?? '',
+    summary: (task as any)?.submissionSummary ?? '',
+    blockers: (task as any)?.submissionBlockers ?? '',
+    feedback: (task as any)?.reviewFeedback ?? (task as any)?.feedback ?? '',
+    submittedAt: (task as any)?.submittedAt ?? '',
+  }
+}
+
+function hasSubmission(task?: Task) {
+  const submission = getSubmission(task)
+  return !!(submission.prLink || submission.docLink || submission.summary || submission.blockers)
+}
+
+async function copyText(value: string, label = 'Copied') {
+  if (!value) {
+    toast.error('Nothing to copy')
+    return
+  }
+
+  try {
+    await navigator.clipboard.writeText(value)
+    toast.success(label)
+  } catch {
+    toast.error('Failed to copy')
+  }
+}
+
+function SubmissionModal({
+  open,
+  onClose,
+  task,
+  onSubmitted,
+}: {
+  open: boolean
+  onClose: () => void
+  task: Task
+  onSubmitted: () => void
+}) {
+  const [update, { isLoading }] = useUpdateTaskMutation()
+  const submission = getSubmission(task)
+
+  const [form, setForm] = useState({
+    prLink: submission.prLink,
+    docLink: submission.docLink,
+    summary: submission.summary,
+    blockers: submission.blockers,
+  })
+
+  const f = (k: string) => (e: ChangeEvent<any>) =>
+    setForm(p => ({ ...p, [k]: e.target.value }))
+
+  async function submitWork() {
+    if (!form.prLink.trim()) {
+      toast.error('PR link is required')
+      return
+    }
+
+    if (!form.summary.trim()) {
+      toast.error('Short summary is required')
+      return
+    }
+
+    const payload: any = {
+      status: 'REVIEW',
+      proofLink: form.prLink.trim(),
+      submissionPrLink: form.prLink.trim(),
+      submissionDocLink: form.docLink.trim(),
+      submissionSummary: form.summary.trim(),
+      submissionBlockers: form.blockers.trim(),
+      submittedAt: new Date().toISOString(),
+      reviewStatus: 'SUBMITTED_FOR_REVIEW',
+    }
+
+    try {
+      await update({ id: task.id, data: payload }).unwrap()
+      toast.success('Work submitted for review')
+      onSubmitted()
+      onClose()
+    } catch (error: any) {
+      toast.error(error?.data?.message || 'Failed to submit work')
+    }
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title="Submit Work" size="lg">
+      <div className="space-y-4">
+        <div className="rounded-xl border border-blue-100 bg-blue-50/60 px-4 py-3">
+          <p className="text-sm font-bold text-blue-700">{task.title}</p>
+          <p className="text-xs text-blue-600 mt-1">
+            Submit your PR link and short work summary. The task will move to Submitted for Review.
+          </p>
+        </div>
+
+        <div>
+          <label className="label block mb-1.5 text-xs font-semibold uppercase tracking-wider text-gray-500">
+            PR Link *
+          </label>
+          <input
+            className="input"
+            value={form.prLink}
+            onChange={f('prLink')}
+            placeholder="Paste GitHub PR link"
+            autoFocus
+          />
+        </div>
+
+        <div>
+          <label className="label block mb-1.5 text-xs font-semibold uppercase tracking-wider text-gray-500">
+            Document / Demo Link
+          </label>
+          <input
+            className="input"
+            value={form.docLink}
+            onChange={f('docLink')}
+            placeholder="Optional document, demo, or reference link"
+          />
+        </div>
+
+        <div>
+          <label className="label block mb-1.5 text-xs font-semibold uppercase tracking-wider text-gray-500">
+            Short Summary *
+          </label>
+          <textarea
+            className="input resize-none"
+            rows={3}
+            value={form.summary}
+            onChange={f('summary')}
+            placeholder="Write 2-3 lines about what you completed"
+          />
+        </div>
+
+        <div>
+          <label className="label block mb-1.5 text-xs font-semibold uppercase tracking-wider text-gray-500">
+            Doubts / Blockers
+          </label>
+          <textarea
+            className="input resize-none"
+            rows={2}
+            value={form.blockers}
+            onChange={f('blockers')}
+            placeholder="Optional blockers or doubts"
+          />
+        </div>
+
+        <div className="flex justify-end gap-2 pt-4 border-t border-gray-100">
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="primary" loading={isLoading} onClick={submitWork}>
+            <Send size={14} />
+            Submit for Review
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
 function TaskModal({
   open,
   onClose,
@@ -130,7 +463,7 @@ function TaskModal({
   const [create, { isLoading: creating }] = useCreateTaskMutation()
   const [update, { isLoading: updating }] = useUpdateTaskMutation()
   const { data: users = [] } = useGetUsersQuery()
-  const { data: allTasks = [] } = useGetTasksQuery()
+  const { data: allTasks = [], refetch } = useGetTasksQuery()
 
   const [form, setForm] = useState({
     title: task?.title ?? '',
@@ -143,13 +476,33 @@ function TaskModal({
     feedback: (task as any)?.feedback ?? '',
   })
 
+  const submission = getSubmission(task)
+  const canReview = user?.role === ROLES.MANAGER || user?.role === ROLES.SUPER_ADMIN
+  const isAssignedIntern = user?.role === ROLES.INTERN && user?.id === getTaskAssigneeId(task as Task)
+  const canSubmitWork = isEdit && isAssignedIntern && task?.status !== 'DONE'
+
   const f = (k: string) => (e: ChangeEvent<any>) =>
     setForm(p => ({ ...p, [k]: e.target.value }))
 
-  const assignableUsers = users.filter(u => {
-    if (!form.squad) return false
-    return u.role === ROLES.INTERN && u.squad === form.squad
-  })
+  const selectedSquadKey = getSquadKey(form.squad)
+
+  const internUsers = useMemo(() => {
+    return users
+      .filter((u: any) => isInternUser(u))
+      .filter((u: any) => getUserId(u))
+  }, [users])
+
+  const exactSquadUsers = useMemo(() => {
+    return internUsers.filter((u: any) => userMatchesSquad(u, form.squad))
+  }, [internUsers, form.squad])
+
+  const assignableUsers = useMemo(() => {
+    if (!form.squad) return internUsers
+
+    if (exactSquadUsers.length > 0) return exactSquadUsers
+
+    return []
+  }, [form.squad, internUsers, exactSquadUsers])
 
   const selectedUser = users.find(u => u.id === form.assignedToId)
   const selectedUserActiveTasks = selectedUser
@@ -167,12 +520,7 @@ function TaskModal({
       return
     }
 
-    try {
-      await navigator.clipboard.writeText(followUpMessage)
-      toast.success('Follow-up message copied')
-    } catch {
-      toast.error('Failed to copy message')
-    }
+    await copyText(followUpMessage, 'Follow-up message copied')
   }
 
   async function submit() {
@@ -248,8 +596,54 @@ function TaskModal({
     }
   }
 
+  async function markCompleted() {
+    if (!task) return
+
+    const payload: any = {
+      status: 'DONE',
+      reviewStatus: 'APPROVED',
+      feedback: form.feedback || submission.feedback || '',
+      reviewFeedback: form.feedback || submission.feedback || '',
+      reviewedAt: new Date().toISOString(),
+    }
+
+    try {
+      await update({ id: task.id, data: payload }).unwrap()
+      toast.success('Task marked as completed')
+      refetch()
+      onClose()
+    } catch (error: any) {
+      toast.error(error?.data?.message || 'Failed to complete task')
+    }
+  }
+
+  async function askChanges() {
+    if (!task) return
+
+    const comment = form.feedback || prompt('Enter changes required for the intern:', submission.feedback || '')
+
+    if (comment === null) return
+
+    const payload: any = {
+      status: 'IN_PROGRESS',
+      reviewStatus: 'CHANGES_REQUESTED',
+      feedback: comment || '',
+      reviewFeedback: comment || '',
+      reviewedAt: new Date().toISOString(),
+    }
+
+    try {
+      await update({ id: task.id, data: payload }).unwrap()
+      toast.success('Changes requested')
+      refetch()
+      onClose()
+    } catch (error: any) {
+      toast.error(error?.data?.message || 'Failed to request changes')
+    }
+  }
+
   return (
-    <Modal open={open} onClose={onClose} title={isEdit ? 'Edit Task' : 'New Task'} size="lg">
+    <Modal open={open} onClose={onClose} title={isEdit ? 'Task Details' : 'New Task'} size="lg">
       <div className="space-y-4">
         <div>
           <label className="label block mb-1.5 text-xs font-semibold uppercase tracking-wider text-gray-500">
@@ -261,6 +655,7 @@ function TaskModal({
             onChange={f('title')}
             placeholder="What needs to be done?"
             autoFocus
+            disabled={user?.role === ROLES.INTERN}
           />
         </div>
 
@@ -274,6 +669,7 @@ function TaskModal({
             value={form.description}
             onChange={f('description')}
             placeholder="Optional details or context"
+            disabled={user?.role === ROLES.INTERN}
           />
         </div>
 
@@ -285,6 +681,7 @@ function TaskModal({
             <select
               className="input"
               value={form.squad}
+              disabled={user?.role === ROLES.INTERN}
               onChange={(e) => {
                 const selectedSquad = e.target.value
                 setForm(p => ({
@@ -307,7 +704,12 @@ function TaskModal({
             <label className="label block mb-1.5 text-xs font-semibold uppercase tracking-wider text-gray-500">
               Priority
             </label>
-            <select className="input" value={form.priority} onChange={f('priority')}>
+            <select
+              className="input"
+              value={form.priority}
+              onChange={f('priority')}
+              disabled={user?.role === ROLES.INTERN}
+            >
               {TASK_PRIORITIES.map(p => (
                 <option key={p.key} value={p.key}>
                   {p.label}
@@ -326,7 +728,7 @@ function TaskModal({
               className="input"
               value={form.assignedToId}
               onChange={f('assignedToId')}
-              disabled={!form.squad || assignableUsers.length === 0}
+              disabled={user?.role === ROLES.INTERN || !form.squad || assignableUsers.length === 0}
             >
               <option value="">
                 {!form.squad
@@ -336,25 +738,28 @@ function TaskModal({
                     : 'Select intern'}
               </option>
 
-              {assignableUsers.map(u => {
-                const activeCount = getActiveTaskCount(allTasks, u.id)
+              {assignableUsers.map((u: any) => {
+                const userId = getUserId(u)
+                const userName = getUserName(u)
+                const userSquad = getUserSquad(u)
+                const activeCount = getActiveTaskCount(allTasks, userId)
                 const workload = getWorkloadMeta(activeCount)
 
                 return (
-                  <option key={u.id} value={u.id}>
-                    {workload.emoji} {u.name} — {u.squad} — {activeCount === 0 ? 'Available' : `${activeCount} active task${activeCount > 1 ? 's' : ''}`}
+                  <option key={userId} value={userId}>
+                    {workload.emoji} {userName} {userSquad ? `— ${userSquad}` : ''} — {activeCount === 0 ? 'Available' : `${activeCount} active task${activeCount > 1 ? 's' : ''}`}
                   </option>
                 )
               })}
             </select>
 
-            {form.squad && assignableUsers.length === 0 && (
-              <p className="mt-1 text-xs text-red-500">
-                No active interns found in {form.squad}. Please add interns to this squad from Command Centre.
+            {form.squad && assignableUsers.length === 0 && user?.role !== ROLES.INTERN && (
+              <p className="mt-1 text-[11px] text-red-500">
+                No intern users found for {selectedSquadKey || form.squad}. Please check if those interns are added with correct squad details.
               </p>
             )}
 
-            {assignableUsers.length > 0 && (
+            {assignableUsers.length > 0 && user?.role !== ROLES.INTERN && (
               <div className="mt-2 flex flex-wrap gap-2">
                 <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
                   🟢 Available
@@ -378,6 +783,7 @@ function TaskModal({
               type="datetime-local"
               value={form.dueDate}
               onChange={f('dueDate')}
+              disabled={user?.role === ROLES.INTERN}
             />
           </div>
         </div>
@@ -437,36 +843,148 @@ function TaskModal({
           </div>
         )}
 
-        {isEdit && (
+        {isEdit && hasSubmission(task) && (
           <div className="pt-4 border-t border-gray-100 space-y-4">
+            <div className="rounded-xl border border-purple-100 bg-purple-50/50 p-4">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <div>
+                  <p className="text-xs font-bold text-purple-700 uppercase tracking-wider flex items-center gap-2">
+                    <ClipboardCheck size={14} />
+                    Submitted for Review
+                  </p>
+                  <p className="text-xs text-purple-600 mt-1">
+                    {submission.submittedAt
+                      ? `Submitted on ${new Date(submission.submittedAt).toLocaleString()}`
+                      : 'Intern has submitted work for this task'}
+                  </p>
+                </div>
+
+                <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-purple-600 text-white">
+                  REVIEW
+                </span>
+              </div>
+
+              {submission.prLink && (
+                <div className="rounded-lg bg-white border border-purple-100 p-3 mb-3">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">PR Link</p>
+                  <p className="text-xs text-gray-700 break-all">{submission.prLink}</p>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    <Button
+                      variant="secondary"
+                      size="xs"
+                      onClick={() => copyText(submission.prLink, 'PR link copied')}
+                    >
+                      <Copy size={12} />
+                      Copy PR
+                    </Button>
+
+                    <a href={submission.prLink} target="_blank" rel="noreferrer">
+                      <Button variant="secondary" size="xs">
+                        <ExternalLink size={12} />
+                        Open PR
+                      </Button>
+                    </a>
+                  </div>
+                </div>
+              )}
+
+              {submission.docLink && (
+                <div className="rounded-lg bg-white border border-purple-100 p-3 mb-3">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Document / Demo Link</p>
+                  <p className="text-xs text-gray-700 break-all">{submission.docLink}</p>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    <Button
+                      variant="secondary"
+                      size="xs"
+                      onClick={() => copyText(submission.docLink, 'Document link copied')}
+                    >
+                      <Copy size={12} />
+                      Copy Link
+                    </Button>
+
+                    <a href={submission.docLink} target="_blank" rel="noreferrer">
+                      <Button variant="secondary" size="xs">
+                        <ExternalLink size={12} />
+                        Open Link
+                      </Button>
+                    </a>
+                  </div>
+                </div>
+              )}
+
+              {submission.summary && (
+                <div className="rounded-lg bg-white border border-purple-100 p-3 mb-3">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Work Summary</p>
+                  <p className="text-xs text-gray-700 whitespace-pre-line leading-relaxed">
+                    {submission.summary}
+                  </p>
+                </div>
+              )}
+
+              {submission.blockers && (
+                <div className="rounded-lg bg-white border border-amber-100 p-3">
+                  <p className="text-[10px] font-bold text-amber-500 uppercase mb-1">Doubts / Blockers</p>
+                  <p className="text-xs text-gray-700 whitespace-pre-line leading-relaxed">
+                    {submission.blockers}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {isEdit && canReview && hasSubmission(task) && (
+          <div className="pt-4 border-t border-gray-100 space-y-3">
             <div>
-              <label className="label block mb-1.5 text-xs font-bold text-purple-600 uppercase">
-                Proof Link (Intern)
+              <label className="label block mb-1.5 text-xs font-bold text-blue-600 uppercase">
+                Review Feedback
               </label>
-              <input
-                className="input border-purple-100 focus:border-purple-300"
-                value={form.proofLink}
-                onChange={f('proofLink')}
-                placeholder="https://..."
-                disabled={user?.role === ROLES.MANAGER}
+              <textarea
+                className="input border-blue-100 focus:border-blue-300 resize-none"
+                rows={2}
+                value={form.feedback || submission.feedback}
+                onChange={f('feedback')}
+                placeholder="Add review comment before approving or asking changes"
               />
             </div>
 
-            {(user?.role === ROLES.MANAGER || user?.role === ROLES.SUPER_ADMIN || form.feedback) && (
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button variant="primary" onClick={markCompleted} loading={updating}>
+                <CheckCircle2 size={14} />
+                Mark Completed
+              </Button>
+
+              <Button variant="secondary" onClick={askChanges} loading={updating}>
+                <AlertTriangle size={14} />
+                Ask for Changes
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {isEdit && canSubmitWork && (
+          <div className="pt-4 border-t border-gray-100">
+            <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <label className="label block mb-1.5 text-xs font-bold text-blue-600 uppercase">
-                  Manager Feedback
-                </label>
-                <textarea
-                  className="input border-blue-100 focus:border-blue-300 resize-none"
-                  rows={2}
-                  value={form.feedback}
-                  onChange={f('feedback')}
-                  placeholder="Approve/Reject reason..."
-                  disabled={user?.role === ROLES.INTERN}
-                />
+                <p className="text-sm font-bold text-blue-700">Ready to submit?</p>
+                <p className="text-xs text-blue-600 mt-1">
+                  Add your PR link and short summary to send this task for review.
+                </p>
               </div>
-            )}
+
+              <Button
+                variant="primary"
+                onClick={() => {
+                  onClose()
+                  setTimeout(() => {
+                    window.dispatchEvent(new CustomEvent('open-submit-work', { detail: task }))
+                  }, 0)
+                }}
+              >
+                <Send size={14} />
+                Submit Work
+              </Button>
+            </div>
           </div>
         )}
 
@@ -474,9 +992,12 @@ function TaskModal({
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="primary" loading={creating || updating} onClick={submit}>
-            {isEdit ? 'Save Changes' : 'Assign Task'}
-          </Button>
+
+          {user?.role !== ROLES.INTERN && (
+            <Button variant="primary" loading={creating || updating} onClick={submit}>
+              {isEdit ? 'Save Changes' : 'Assign Task'}
+            </Button>
+          )}
         </div>
       </div>
     </Modal>
@@ -489,18 +1010,24 @@ function TaskCard({
   onMove,
   onDelete,
   onFollowUp,
+  onSubmitWork,
 }: {
   task: Task
   onEdit: () => void
   onMove: (status: TaskStatus) => void
   onDelete: () => void
   onFollowUp: () => void
+  onSubmitWork: () => void
 }) {
+  const user = useCurrentUser()
   const priority = PRIORITY_MAP[task.priority]
   const [menuOpen, setMenuOpen] = useState(false)
   const due = getDueBadge(task)
   const newTask = isNewTask(task)
   const borderClass = PRIORITY_BORDER[task.priority] ?? 'border-l-gray-300'
+  const submitted = hasSubmission(task) || task.status === 'REVIEW'
+  const isAssignedIntern = user?.role === ROLES.INTERN && user?.id === getTaskAssigneeId(task)
+  const canSubmitWork = isAssignedIntern && task.status !== 'DONE'
 
   function stopCardClick(e: MouseEvent) {
     e.preventDefault()
@@ -513,6 +1040,7 @@ function TaskCard({
         'relative bg-white border border-l-4 border-gray-200 rounded-xl p-3 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-gray-300 transition-all cursor-pointer group',
         borderClass,
         newTask && 'ring-2 ring-blue-100',
+        submitted && 'ring-2 ring-purple-100',
         menuOpen && 'z-50'
       )}
       onClick={onEdit}
@@ -546,6 +1074,13 @@ function TaskCard({
               {due.label}
             </span>
           )}
+
+          {submitted && (
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 flex items-center gap-1">
+              <ClipboardCheck size={10} />
+              Submitted
+            </span>
+          )}
         </div>
 
         <div
@@ -567,10 +1102,24 @@ function TaskCard({
 
           {menuOpen && (
             <div
-              className="absolute right-0 top-7 bg-white border border-gray-200 rounded-lg shadow-xl py-1 z-[9999] min-w-[170px]"
+              className="absolute right-0 top-7 bg-white border border-gray-200 rounded-lg shadow-xl py-1 z-[9999] min-w-[185px]"
               onClick={e => e.stopPropagation()}
               onMouseDown={e => e.stopPropagation()}
             >
+              {canSubmitWork && (
+                <button
+                  type="button"
+                  className="w-full text-left px-3 py-2 text-xs text-purple-600 hover:bg-purple-50 font-semibold"
+                  onClick={(e) => {
+                    stopCardClick(e)
+                    onSubmitWork()
+                    setMenuOpen(false)
+                  }}
+                >
+                  Submit Work
+                </button>
+              )}
+
               {TASK_STATUSES.filter(s => s.key !== task.status).map(s => (
                 <button
                   key={s.key}
@@ -588,7 +1137,7 @@ function TaskCard({
 
               <div className="border-t border-gray-100 my-1" />
 
-              {task.status !== 'DONE' && (
+              {task.status !== 'DONE' && user?.role !== ROLES.INTERN && (
                 <button
                   type="button"
                   className="w-full text-left px-3 py-2 text-xs text-blue-600 hover:bg-blue-50"
@@ -601,18 +1150,19 @@ function TaskCard({
                   Send follow-up
                 </button>
               )}
-
-              <button
-                type="button"
-                className="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-red-50"
-                onClick={(e) => {
-                  stopCardClick(e)
-                  onDelete()
-                  setMenuOpen(false)
-                }}
-              >
-                Delete
-              </button>
+              {user?.role !== ROLES.INTERN && (
+                <button
+                  type="button"
+                  className="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-red-50"
+                  onClick={(e) => {
+                    stopCardClick(e)
+                    onDelete()
+                    setMenuOpen(false)
+                  }}
+                >
+                  Delete
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -626,6 +1176,17 @@ function TaskCard({
         <p className="text-xs text-gray-500 line-clamp-2 mb-3">
           {(task as any).description}
         </p>
+      )}
+
+      {submitted && (
+        <div className="rounded-lg bg-purple-50 border border-purple-100 px-2 py-1.5 mb-3">
+          <p className="text-[10px] font-bold text-purple-600 uppercase">
+            Submitted for Review
+          </p>
+          <p className="text-[10px] text-purple-500 mt-0.5">
+            Review PR link inside task details
+          </p>
+        </div>
       )}
 
       <div className="flex items-center justify-between mt-1 gap-2">
@@ -651,6 +1212,7 @@ export default function TasksPage() {
   const [view, setView] = useState<ViewMode>('board')
   const [addOpen, setAddOpen] = useState(false)
   const [editTask, setEditTask] = useState<Task | undefined>()
+  const [submitTask, setSubmitTask] = useState<Task | undefined>()
   const [search, setSearch] = useState('')
   const [priorityFilter, setPriorityFilter] = useState('ALL')
   const [squadFilter, setSquadFilter] = useState('ALL')
@@ -668,7 +1230,7 @@ export default function TasksPage() {
     }
 
     if (user?.role === ROLES.MANAGER) {
-      return allTasks
+      return allTasks.filter(t => getSquadKey(t.squad) === getSquadKey(user.squad))
     }
 
     return allTasks
@@ -687,13 +1249,16 @@ export default function TasksPage() {
       const title = task.title?.toLowerCase() ?? ''
       const description = (task as any)?.description?.toLowerCase() ?? ''
       const squad = (task as any)?.squad ?? ''
+      const submission = getSubmission(task)
 
       const matchesSearch =
         !q ||
         title.includes(q) ||
         description.includes(q) ||
         assignedName.includes(q) ||
-        squad.toLowerCase().includes(q)
+        squad.toLowerCase().includes(q) ||
+        submission.prLink.toLowerCase().includes(q) ||
+        submission.summary.toLowerCase().includes(q)
 
       const matchesPriority = priorityFilter === 'ALL' || task.priority === priorityFilter
       const matchesSquad = squadFilter === 'ALL' || squad === squadFilter
@@ -757,6 +1322,7 @@ export default function TasksPage() {
   const reviewCount = tasks.filter(t => t.status === 'REVIEW').length
   const newCount = tasks.filter(t => isNewTask(t)).length
   const hasFilters = search || priorityFilter !== 'ALL' || squadFilter !== 'ALL' || statusFilter !== 'ALL'
+  const canCreateTask = user?.role === ROLES.MANAGER || user?.role === ROLES.SUPER_ADMIN
 
   return (
     <div className="max-w-[1200px] mx-auto">
@@ -772,9 +1338,11 @@ export default function TasksPage() {
           <Button variant="ghost" size="sm" onClick={() => refetch()}>
             <RefreshCw size={14} />
           </Button>
-          <Button variant="primary" size="sm" onClick={() => setAddOpen(true)}>
-            <Plus size={16} /> New Task
-          </Button>
+          {canCreateTask && (
+            <Button variant="primary" size="sm" onClick={() => setAddOpen(true)}>
+              <Plus size={16} /> New Task
+            </Button>
+          )}
         </div>
       </div>
 
@@ -827,7 +1395,7 @@ export default function TasksPage() {
               className="input pl-9 h-10 text-sm"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Search task, assignee, squad..."
+              placeholder="Search task, assignee, squad, PR..."
             />
           </div>
         </div>
@@ -916,6 +1484,7 @@ export default function TasksPage() {
                       {col.label}
                     </span>
                   </div>
+
                   <span className="text-[10px] font-bold text-gray-400 bg-white border border-gray-100 rounded-full px-2 py-0.5">
                     {colTasks.length}
                   </span>
@@ -942,6 +1511,7 @@ export default function TasksPage() {
                       onMove={(status) => moveTask(task.id, status)}
                       onDelete={() => handleDelete(task.id)}
                       onFollowUp={() => handleFollowUp(task)}
+                      onSubmitWork={() => setSubmitTask(task)}
                     />
                   ))}
                 </div>
@@ -950,11 +1520,11 @@ export default function TasksPage() {
           })}
         </div>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+        <div className="bg-white border border-gray-200 rounded-2xl overflow-x-auto whitespace-nowrap shadow-sm">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50/50">
-                {['Task', 'Priority', 'Assigned', 'Due', 'Status', 'Actions'].map(h => (
+                {['Task', 'Priority', 'Assigned', 'Due', 'Status', 'Submission', 'Actions'].map(h => (
                   <th key={h} className="text-left px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                     {h}
                   </th>
@@ -966,6 +1536,10 @@ export default function TasksPage() {
               {filteredTasks.map((task) => {
                 const priority = PRIORITY_MAP[task.priority]
                 const due = getDueBadge(task)
+                const submitted = hasSubmission(task) || task.status === 'REVIEW'
+                const submission = getSubmission(task)
+                const isAssignedIntern = user?.role === ROLES.INTERN && user?.id === getTaskAssigneeId(task)
+                const canSubmitWork = isAssignedIntern && task.status !== 'DONE'
 
                 return (
                   <tr
@@ -1037,9 +1611,46 @@ export default function TasksPage() {
                       </select>
                     </td>
 
+                    <td className="px-6 py-4">
+                      {submitted ? (
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[10px] font-bold text-purple-600 bg-purple-50 border border-purple-100 px-2 py-1 rounded-full w-fit">
+                            Submitted
+                          </span>
+                          {submission.prLink && (
+                            <button
+                              onClick={e => {
+                                e.stopPropagation()
+                                copyText(submission.prLink, 'PR link copied')
+                              }}
+                              className="text-[10px] text-blue-600 hover:underline text-left"
+                            >
+                              Copy PR
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-300">—</span>
+                      )}
+                    </td>
+
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                        {task.status !== 'DONE' && (
+                        {canSubmitWork && (
+                          <Button
+                            variant="ghost"
+                            size="xs"
+                            onClick={e => {
+                              e.stopPropagation()
+                              setSubmitTask(task)
+                            }}
+                            className="text-purple-600 hover:bg-purple-50"
+                          >
+                            Submit
+                          </Button>
+                        )}
+
+                        {task.status !== 'DONE' && user?.role !== ROLES.INTERN && (
                           <Button
                             variant="ghost"
                             size="xs"
@@ -1053,17 +1664,19 @@ export default function TasksPage() {
                           </Button>
                         )}
 
-                        <Button
-                          variant="ghost"
-                          size="xs"
-                          onClick={e => {
-                            e.stopPropagation()
-                            handleDelete(task.id)
-                          }}
-                          className="text-red-500 hover:bg-red-50"
-                        >
-                          Delete
-                        </Button>
+                        {user?.role !== ROLES.INTERN && (
+                          <Button
+                            variant="ghost"
+                            size="xs"
+                            onClick={e => {
+                              e.stopPropagation()
+                              handleDelete(task.id)
+                            }}
+                            className="text-red-500 hover:bg-red-50"
+                          >
+                            Delete
+                          </Button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -1076,6 +1689,17 @@ export default function TasksPage() {
 
       {addOpen && <TaskModal open onClose={() => setAddOpen(false)} />}
       {editTask && <TaskModal open onClose={() => setEditTask(undefined)} task={editTask} />}
+      {submitTask && (
+        <SubmissionModal
+          open
+          task={submitTask}
+          onClose={() => setSubmitTask(undefined)}
+          onSubmitted={() => {
+            refetch()
+            setSubmitTask(undefined)
+          }}
+        />
+      )}
     </div>
   )
 }

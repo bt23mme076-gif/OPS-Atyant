@@ -14,6 +14,7 @@ import {
   Bell,
   LayoutGrid,
   Sparkles,
+  X,
   Linkedin,
 } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
