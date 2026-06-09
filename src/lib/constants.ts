@@ -13,6 +13,7 @@ export const SQUADS = {
   CONTENT: 'CONTENT',
   PRODUCT: 'PRODUCT',
   HR_DESIGN: 'HR_DESIGN',
+  CBM: 'CBM',
 } as const
 
 export const USER_STATUS = {

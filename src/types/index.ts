@@ -1,6 +1,6 @@
 // ── Enums ─────────────────────────────────────────────────────────────
 export type UserRole = 'SUPER_ADMIN' | 'MANAGER' | 'INTERN'
-export type Squad = 'TECH' | 'OUTREACH' | 'CONTENT' | 'PRODUCT' | 'HR_DESIGN'
+export type Squad = 'TECH' | 'OUTREACH' | 'CONTENT' | 'PRODUCT' | 'HR_DESIGN' | 'CBM'
 export type UserStatus = 'ACTIVE' | 'INACTIVE' | 'PROBATION' | 'ALUMNI'
 export type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
 export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'REVIEW' | 'DONE' | 'BLOCKED'
