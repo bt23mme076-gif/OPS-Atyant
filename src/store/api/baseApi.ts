@@ -19,7 +19,7 @@ export const baseQueryWithAuthGuard: BaseQueryFn<string | FetchArgs, unknown, Fe
     const result = await rawBaseQuery(args, api, extraOptions)
     if (result.error?.status === 401) {
       const url = typeof args === 'string' ? args : (args as FetchArgs).url ?? ''
-      if (url.includes('/auth/me') || url.includes('/auth/logout')) {
+      if (!url.includes('/auth/login') && !url.includes('/auth/accept-invite')) {
         api.dispatch(clearCredentials())
         if (typeof window !== 'undefined') window.location.href = '/login'
       }
