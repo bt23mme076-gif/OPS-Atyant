@@ -1224,10 +1224,6 @@ export default function TasksPage() {
   const [deleteTask] = useDeleteTaskMutation()
   const [sendTaskFollowUp] = useSendTaskFollowUpMutation()
 
-  if (typeof window !== 'undefined') {
-    window.onopenSubmitWork = undefined as any
-  }
-
   const tasks = (() => {
     if (view === 'mine' || user?.role === ROLES.INTERN) {
       return myTasks
