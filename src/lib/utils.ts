@@ -1,6 +1,6 @@
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
-import { format, formatDistanceToNow, isPast, isToday, isTomorrow } from 'date-fns'
+import { differenceInCalendarDays, format, formatDistanceToNow, isPast, isToday, isTomorrow } from 'date-fns'
 
 export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(inputs))
@@ -21,15 +21,38 @@ export function formatRelative(date: string | Date): string {
   return formatDistanceToNow(d, { addSuffix: true })
 }
 
-export function formatDue(date: string | Date): { label: string; isOverdue: boolean } {
+export function formatDue(date: string | Date): {
+  label: string
+  isOverdue: boolean
+  health: 'onTrack' | 'atRisk' | 'delayed'
+  healthLabel: string
+} {
   const d = new Date(date)
   const isOverdue = isPast(d)
+  const daysLeft = differenceInCalendarDays(d, new Date())
+
   let label: string
-  if (isOverdue) label = `Overdue · ${formatDistanceToNow(d, { addSuffix: false })} ago`
-  else if (isToday(d)) label = `Due today at ${format(d, 'h:mm a')}`
-  else if (isTomorrow(d)) label = `Due tomorrow`
-  else label = `Due ${format(d, 'MMM d')}`
-  return { label, isOverdue }
+  let health: 'onTrack' | 'atRisk' | 'delayed'
+  let healthLabel: string
+
+  if (isOverdue) {
+    health = 'delayed'
+    healthLabel = 'Delayed'
+    label = `Delayed · ${formatDistanceToNow(d, { addSuffix: false })} ago`
+  } else if (daysLeft <= 3) {
+    health = 'atRisk'
+    healthLabel = 'At Risk'
+
+    if (isToday(d)) label = `At Risk · Due today at ${format(d, 'h:mm a')}`
+    else if (isTomorrow(d)) label = 'At Risk · Due tomorrow'
+    else label = `At Risk · Due ${format(d, 'MMM d')}`
+  } else {
+    health = 'onTrack'
+    healthLabel = 'On Track'
+    label = `On Track · Due ${format(d, 'MMM d')}`
+  }
+
+  return { label, isOverdue, health, healthLabel }
 }
 
 export function getInitials(name: string): string {
