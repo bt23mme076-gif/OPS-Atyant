@@ -98,7 +98,7 @@ export const NAV_ITEMS = [
   },
   {
     section: 'Pipeline', items: [
-      { href: '/mentors', label: 'Mentors', icon: 'Users', roles: [ROLES.SUPER_ADMIN, ROLES.MANAGER] },
+      { href: '/mentor-dashboard', label: 'Mentor Dashboard', icon: 'Gauge', roles: [ROLES.SUPER_ADMIN] },
       { href: '/students', label: 'Students', icon: 'GraduationCap', roles: [ROLES.SUPER_ADMIN, ROLES.MANAGER] },
       { href: '/sessions', label: 'Sessions', icon: 'Video', roles: [ROLES.SUPER_ADMIN, ROLES.MANAGER] },
     ]
