@@ -70,6 +70,8 @@ function getDueBadge(task: Task) {
   return {
     label: due.label,
     isOverdue: due.isOverdue,
+    health: due.health,
+    healthLabel: due.healthLabel,
   }
 }
 
@@ -1067,10 +1069,14 @@ function TaskCard({
             <span
               className={cn(
                 'text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1',
-                due.isOverdue ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-500'
+                due.health === 'delayed' && 'bg-red-50 text-red-600',
+                due.health === 'atRisk' && 'bg-yellow-50 text-yellow-600',
+                due.health === 'onTrack' && 'bg-green-50 text-green-600'
               )}
             >
-              {due.isOverdue ? <AlertTriangle size={10} /> : <Clock size={10} />}
+              {due.health === 'delayed' && <AlertTriangle size={10} />}
+              {due.health === 'atRisk' && <Clock size={10} />}
+              {due.health === 'onTrack' && <CheckCircle2 size={10} />}
               {due.label}
             </span>
           )}
@@ -1588,7 +1594,14 @@ export default function TasksPage() {
 
                     <td className="px-6 py-4">
                       {due ? (
-                        <span className={cn('text-xs font-medium', due.isOverdue ? 'text-red-500' : 'text-gray-500')}>
+                        <span
+                          className={cn(
+                            'text-xs font-medium',
+                            due.health === 'delayed' && 'text-red-500',
+                            due.health === 'atRisk' && 'text-yellow-600',
+                            due.health === 'onTrack' && 'text-green-600'
+                          )}
+                        >
                           {due.label}
                         </span>
                       ) : (
