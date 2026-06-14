@@ -112,7 +112,61 @@ export default function DashboardPage() {
     const reactions = posts.reduce((a, p) => a + (p.reactions || 0), 0)
     return { impressions, reactions }
   }, [posts])
+  const myRankData = useMemo(() => {
+  if (!user) return null
 
+  const allUsers = [...leaders]
+
+  const rank =
+    allUsers.findIndex(
+      (p) => p.name === user.name
+    ) + 1
+
+  const me = allUsers.find(
+    (p) => p.name === user.name
+  )
+
+  const myPoints = me?.points || 0
+
+  const aboveUser =
+    rank > 1
+      ? allUsers[rank - 2]
+      : null
+
+  const nextRankGap =
+    aboveUser
+      ? aboveUser.points - myPoints
+      : 0
+
+  return {
+    rank,
+    myPoints,
+    nextRankGap,
+  }
+}, [leaders, user])
+
+const myTasks = tasks.filter(
+  (t: Task) => t.assignedToId === user?.id
+)
+
+const completedTasks = myTasks.filter(
+  (t: Task) => t.status === 'DONE'
+).length
+
+const progressPercent =
+  myTasks.length > 0
+    ? Math.round(
+        (completedTasks / myTasks.length) * 100
+      )
+    : 0
+  const totalCompletedTasks = tasks.filter(
+  (t: Task) => t.status === 'DONE'
+).length
+
+const leadingSquad = squads[0]
+const leadingSquadMeta = leadingSquad
+  ? squadMeta(leadingSquad.squad)
+  : null
   const firstName = user?.name?.split(' ')[0] ?? 'there'
   const loading = l1 || l2
 
@@ -147,7 +201,69 @@ export default function DashboardPage() {
       </div>
 
       {loading && <div className="flex justify-center py-10"><Spinner size={26} /></div>}
+      {user?.role === 'INTERN' && (
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-7">
+    <div className="card p-4 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+      <p className="text-xs text-gray-500 font-semibold">🏆 My Rank</p>
+      <p className="text-2xl font-bold text-gray-900 mt-1">
+        {myRankData?.rank ? `#${myRankData.rank}` : '—'}
+      </p>
+      <p className="text-[11px] text-gray-400 mt-1">
+        ⭐ {myRankData?.myPoints ?? 0} points earned
+      </p>
+    </div>
 
+    <div className="card p-4 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+      <p className="text-xs text-gray-500 font-semibold">📈 My Progress</p>
+      <div className="flex items-end justify-between mt-1">
+        <p className="text-2xl font-bold text-gray-900">{progressPercent}%</p>
+        <p className="text-[11px] text-gray-400">
+          {completedTasks}/{myTasks.length} tasks
+        </p>
+      </div>
+      <div className="h-2 rounded-full bg-gray-100 overflow-hidden mt-3">
+        <div
+          className="h-full rounded-full transition-all"
+          style={{
+            width: `${progressPercent}%`,
+            background: 'linear-gradient(90deg, #7C3AED, #2563EB)',
+          }}
+        />
+      </div>
+    </div>
+
+    <div className="card p-4 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+      <p className="text-xs text-gray-500 font-semibold">🎯 Next Rank</p>
+      <p className="text-sm font-bold text-gray-900 mt-2">
+        {myRankData?.rank === 1
+          ? 'You are leading the board 👑'
+          : myRankData?.nextRankGap
+            ? `${myRankData.nextRankGap} pts to climb higher`
+            : 'Complete tasks to enter ranking 🚀'}
+      </p>
+      <p className="text-[11px] text-gray-400 mt-1">
+        Keep completing tasks to boost your score.
+      </p>
+    </div>
+  </div>
+)}
+<div className="card p-5 mb-7 bg-gradient-to-r from-orange-50 via-pink-50 to-purple-50 border border-orange-100 shadow-sm hover:shadow-md transition-all duration-300">
+  <div className="flex items-center gap-3">
+    <div className="text-2xl">🔥</div>
+
+    <div>
+      <p className="text-sm font-bold text-gray-900">
+        Weekly Momentum
+      </p>
+
+      <p className="text-xs text-gray-500">
+        {leadingSquad && leadingSquadMeta
+          ? `${leadingSquadMeta.emoji} ${leadingSquadMeta.label} squad is leading with ${leadingSquad.points} points. ${totalCompletedTasks} tasks completed so far 🚀`
+          : 'Complete tasks to build this week’s momentum 🚀'}
+      </p>
+    </div>
+  </div>
+</div>
       {/* ── Live impact ── */}
       <Section icon={<TrendingUp size={16} className="text-emerald-600" />} title="Live Impact"
         subtitle="Real numbers from the Atyant platform, right now">
@@ -242,7 +358,27 @@ export default function DashboardPage() {
                   <span className="w-6 text-center text-base">{MEDALS[i] ?? <span className="text-xs font-bold text-gray-400">#{i + 1}</span>}</span>
                   <Avatar name={p.name} size={32} bg={sm.color} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{p.name}</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+  <p className="text-sm font-medium text-gray-900 truncate">{p.name}</p>
+
+  {i === 0 && (
+    <span className="text-[10px] px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 font-semibold">
+      👑 Atyant Champion
+    </span>
+  )}
+
+  {i === 1 && (
+    <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-semibold">
+      ⚡ Growth Accelerator
+    </span>
+  )}
+
+  {i === 2 && (
+    <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-semibold">
+      🔥 Trailblazer
+    </span>
+  )}
+</div>
                     <p className="text-[11px] text-gray-400">{sm.emoji} {sm.label} · {p.done} done</p>
                   </div>
                   <span className="text-sm font-bold" style={{ color: PURPLE }}>{p.points} pts</span>
