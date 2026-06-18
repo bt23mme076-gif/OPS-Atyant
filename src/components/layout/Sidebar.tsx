@@ -17,6 +17,8 @@ import {
   X,
   Linkedin,
   Gauge,
+  Target,
+  PenTool,
 } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
 import { useAppDispatch, useCurrentUser } from '@/store/hooks'
@@ -36,6 +38,8 @@ const ICON_MAP: Record<string, React.ComponentType<{ size?: number; className?: 
   LayoutGrid,
   Linkedin,
   Gauge,
+  Target,
+  PenTool,
 }
 
 interface SidebarProps {
