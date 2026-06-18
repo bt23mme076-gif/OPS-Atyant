@@ -9,6 +9,7 @@ import { useGetAtyantStatsQuery } from '@/store/api/mentorDashboardApi'
 import { useGetAtyantSessionStatsQuery } from '@/store/api/atyantSessionsApi'
 import { useGetLinkedinPostsQuery } from '@/store/api/linkedinApi'
 import { useGetTasksQuery } from '@/store/api/tasksApi'
+import { useGetUsersQuery } from '@/store/api/usersApi'
 import { Spinner, Avatar, Badge } from '@/components/ui'
 import { useCurrentUser } from '@/store/hooks'
 import { cn } from '@/lib/utils'
@@ -73,6 +74,7 @@ export default function DashboardPage() {
   const { data: sess, isLoading: l2 } = useGetAtyantSessionStatsQuery()
   const { data: posts = [] } = useGetLinkedinPostsQuery({ status: 'published' })
   const { data: tasks = [] } = useGetTasksQuery()
+  const { data: users = [] } = useGetUsersQuery()
 
   // ── Gamification: people leaderboard (points from completed tasks) ──
   const leaders = useMemo(() => {
@@ -85,8 +87,56 @@ export default function DashboardPage() {
       cur.done += 1
       map.set(id, cur)
     })
-    return [...map.values()].sort((a, b) => b.points - a.points).slice(0, 6)
+    return [...map.values()]
+  .sort((a, b) => {
+    if (b.points !== a.points) return b.points - a.points
+    return a.name.localeCompare(b.name)
+  })
+  .slice(0, 6)
   }, [tasks])
+  const managerLeaders = useMemo(() => {
+  const completedBySquad = new Map<string, { points: number; done: number }>()
+
+  tasks.forEach((t: Task) => {
+    if (t.status !== 'DONE') return
+
+    const cur = completedBySquad.get(t.squad) ?? { points: 0, done: 0 }
+    cur.points += 1
+    cur.done += 1
+    completedBySquad.set(t.squad, cur)
+  })
+
+  return users
+    .filter((u: any) => u.role === 'MANAGER')
+    .map((manager: any) => {
+      const squadStats = completedBySquad.get(manager.squad) ?? { points: 0, done: 0 }
+
+      return {
+        id: manager.id,
+        name: manager.name,
+        squad: manager.squad,
+        points: squadStats.points,
+        done: squadStats.done,
+      }
+    })
+    .sort((a, b) => {
+      if (b.points !== a.points) return b.points - a.points
+      return a.name.localeCompare(b.name)
+    })
+}, [tasks, users])
+const myManagerRankData = useMemo(() => {
+  if (!user || user.role !== 'MANAGER') return null
+
+  const rank = managerLeaders.findIndex((m) => m.id === user.id) + 1
+  const me = managerLeaders.find((m) => m.id === user.id)
+
+  return {
+    rank,
+    points: me?.points ?? 0,
+    done: me?.done ?? 0,
+    squad: me?.squad ?? user.squad,
+  }
+}, [managerLeaders, user])
 
   // ── Squad standings ──
   const squads = useMemo(() => {
@@ -247,6 +297,7 @@ const leadingSquadMeta = leadingSquad
     </div>
   </div>
 )}
+
 <div className="card p-5 mb-7 bg-gradient-to-r from-orange-50 via-pink-50 to-purple-50 border border-orange-100 shadow-sm hover:shadow-md transition-all duration-300">
   <div className="flex items-center gap-3">
     <div className="text-2xl">🔥</div>
@@ -416,6 +467,59 @@ const leadingSquadMeta = leadingSquad
       </div>
 
       {/* ── What squads are shipping ── */}
+      {user?.role === 'SUPER_ADMIN' && (
+  <div className="mb-7">
+    <div className="flex items-center gap-2 mb-3">
+      <Trophy size={16} className="text-blue-500" />
+      <div>
+        <h2 className="text-sm font-bold text-gray-900">
+          👨‍💼 Manager Leaderboard
+        </h2>
+        <p className="text-xs text-gray-500">
+          Points earned from squad task completion
+        </p>
+      </div>
+    </div>
+
+    <div className="card divide-y divide-gray-50">
+      {managerLeaders.map((m, i) => (
+        <div
+          key={m.id}
+          className="flex items-center justify-between px-4 py-3"
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-xl">
+  {i === 0 ? '🥇' :
+   i === 1 ? '🥈' :
+   i === 2 ? '🥉' :
+   `#${i + 1}`}
+</span>
+
+            <div>
+              <p className="font-medium text-gray-900">
+                {m.name}
+              </p>
+
+              <p className="text-xs text-gray-500">
+  {m.squad === 'TECH' && '💻 '}
+  {m.squad === 'CBM' && '🤝 '}
+  {m.squad === 'OUTREACH' && '📢 '}
+  {m.squad === 'CONTENT' && '✍️ '}
+  {m.squad === 'PRODUCT' && '🚀 '}
+  {m.squad === 'HR_DESIGN' && '🎨 '}
+  {m.squad} • {m.done} completed tasks
+</p>
+            </div>
+          </div>
+
+          <span className="font-bold text-violet-600">
+            {m.points} pts
+          </span>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
       <Section icon={<Zap size={16} className="text-blue-500" />} title="⚡ Shipping right now"
         subtitle="What teammates are actively working on — cheer them on">
         {working.length === 0 ? (

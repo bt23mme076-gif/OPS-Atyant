@@ -169,6 +169,16 @@ const isInternUser = (user: any) => {
     text.includes('STUDENT')
   )
 }
+const isManagerUser = (user: any) => {
+  const role = getUserRole(user)
+  const text = getSearchText(user)
+
+  return (
+    role === normalize(ROLES.MANAGER) ||
+    role.includes('MANAGER') ||
+    text.includes('MANAGER')
+  )
+}
 
 const SQUAD_ALIASES: Record<string, string[]> = {
   TECH: [
@@ -488,23 +498,29 @@ function TaskModal({
 
   const selectedSquadKey = getSquadKey(form.squad)
 
-  const internUsers = useMemo(() => {
-    return users
-      .filter((u: any) => isInternUser(u))
-      .filter((u: any) => getUserId(u))
-  }, [users])
+  const assignableBaseUsers = useMemo(() => {
+  return users
+    .filter((u: any) => {
+      if (isInternUser(u)) return true
 
-  const exactSquadUsers = useMemo(() => {
-    return internUsers.filter((u: any) => userMatchesSquad(u, form.squad))
-  }, [internUsers, form.squad])
+      if (user?.role === ROLES.SUPER_ADMIN && isManagerUser(u)) return true
 
-  const assignableUsers = useMemo(() => {
-    if (!form.squad) return internUsers
+      return false
+    })
+    .filter((u: any) => getUserId(u))
+}, [users, user?.role])
 
-    if (exactSquadUsers.length > 0) return exactSquadUsers
+const exactSquadUsers = useMemo(() => {
+  return assignableBaseUsers.filter((u: any) => userMatchesSquad(u, form.squad))
+}, [assignableBaseUsers, form.squad])
 
-    return []
-  }, [form.squad, internUsers, exactSquadUsers])
+const assignableUsers = useMemo(() => {
+  if (!form.squad) return assignableBaseUsers
+
+  if (exactSquadUsers.length > 0) return exactSquadUsers
+
+  return []
+}, [form.squad, assignableBaseUsers, exactSquadUsers])
 
   const selectedUser = users.find(u => u.id === form.assignedToId)
   const selectedUserActiveTasks = selectedUser
@@ -518,7 +534,7 @@ function TaskModal({
 
   async function copyFollowUpMessage() {
     if (!followUpMessage) {
-      toast.error('Select an intern first')
+      toast.error('Select an assignee first')
       return
     }
 
@@ -549,19 +565,27 @@ function TaskModal({
     const selectedUser = users.find(u => u.id === form.assignedToId)
 
     if (!selectedUser) {
-      toast.error('Selected intern not found')
+      toast.error('Selected assignee not found')
       return
     }
 
-    if (selectedUser.role !== ROLES.INTERN) {
-      toast.error('Task can be assigned only to interns')
-      return
-    }
+    const selectedUserIsIntern = isInternUser(selectedUser)
+const selectedUserIsManager = isManagerUser(selectedUser)
 
-    if (selectedUser.squad !== form.squad) {
-      toast.error('Selected intern does not belong to this squad')
-      return
-    }
+if (!selectedUserIsIntern && !selectedUserIsManager) {
+  toast.error('Task can be assigned only to interns or managers')
+  return
+}
+
+if (selectedUserIsManager && user?.role !== ROLES.SUPER_ADMIN) {
+  toast.error('Only Super Admin can assign tasks to managers')
+  return
+}
+
+    if (!userMatchesSquad(selectedUser, form.squad)) {
+  toast.error('Selected assignee does not belong to this squad')
+  return
+}
 
     const payload = {
       title: form.title.trim(),
@@ -734,10 +758,10 @@ function TaskModal({
             >
               <option value="">
                 {!form.squad
-                  ? 'Select squad first'
-                  : assignableUsers.length === 0
-                    ? 'No interns in this squad'
-                    : 'Select intern'}
+  ? 'Select squad first'
+  : assignableUsers.length === 0
+    ? 'No assignees in this squad'
+    : 'Select assignee'}
               </option>
 
               {assignableUsers.map((u: any) => {
@@ -749,7 +773,7 @@ function TaskModal({
 
                 return (
                   <option key={userId} value={userId}>
-                    {workload.emoji} {userName} {userSquad ? `— ${userSquad}` : ''} — {activeCount === 0 ? 'Available' : `${activeCount} active task${activeCount > 1 ? 's' : ''}`}
+{workload.emoji} {userName} {isManagerUser(u) ? '(Manager)' : '(Intern)'} {userSquad ? `— ${userSquad}` : ''} — {activeCount === 0 ? 'Available' : `${activeCount} active task${activeCount > 1 ? 's' : ''}`}
                   </option>
                 )
               })}
@@ -757,7 +781,7 @@ function TaskModal({
 
             {form.squad && assignableUsers.length === 0 && user?.role !== ROLES.INTERN && (
               <p className="mt-1 text-[11px] text-red-500">
-                No intern users found for {selectedSquadKey || form.squad}. Please check if those interns are added with correct squad details.
+                No assignees found for {selectedSquadKey || form.squad}. Please check if interns/managers are added with correct squad details.
               </p>
             )}
 
@@ -830,7 +854,7 @@ function TaskModal({
               <div className="rounded-lg bg-white/70 border border-white px-3 py-2 flex items-start gap-2">
                 <AlertTriangle size={14} className={selectedWorkload.text} />
                 <p className="text-gray-700">
-                  This intern already has active work. Please assign only if the task is urgent or manageable.
+                  This assignee already has active work. Please assign only if the task is urgent or manageable.
                 </p>
               </div>
             )}
