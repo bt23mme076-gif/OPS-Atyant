@@ -81,3 +81,55 @@ export function extractErrorMessage(err: unknown): string {
   }
   return 'An unexpected error occurred'
 }
+
+export function getFollowUpStatus(dateStr: string, today: Date): {
+  type: 'none' | 'overdue' | 'today' | 'upcoming'
+  text: string
+  pillClass: string
+  tooltipText: string
+} {
+  if (!dateStr || dateStr === 'Not set') {
+    return {
+      type: 'none',
+      text: 'Not set',
+      pillClass: 'bg-gray-50 text-gray-400 border border-gray-100',
+      tooltipText: 'No follow-up date scheduled',
+    }
+  }
+
+  const d = new Date(dateStr)
+  if (isNaN(d.getTime())) {
+    return {
+      type: 'none',
+      text: 'Invalid Date',
+      pillClass: 'bg-red-50 text-red-400 border border-red-100',
+      tooltipText: 'Invalid follow-up date format',
+    }
+  }
+
+  const diff = differenceInCalendarDays(d, today)
+
+  if (diff < 0) {
+    const daysAgo = Math.abs(diff)
+    return {
+      type: 'overdue',
+      text: 'Overdue',
+      pillClass: 'bg-red-50 text-red-700 border border-red-200 hover:bg-red-100',
+      tooltipText: `Overdue by ${daysAgo} day${daysAgo > 1 ? 's' : ''} (${formatDate(d)})`,
+    }
+  } else if (diff === 0) {
+    return {
+      type: 'today',
+      text: 'Due Today',
+      pillClass: 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100',
+      tooltipText: `Follow-up is scheduled for today (${formatDate(d)})`,
+    }
+  } else {
+    return {
+      type: 'upcoming',
+      text: `In ${diff} day${diff > 1 ? 's' : ''}`,
+      pillClass: 'bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100',
+      tooltipText: `Scheduled for ${formatDate(d)}`,
+    }
+  }
+}
