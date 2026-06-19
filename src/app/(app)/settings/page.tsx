@@ -24,6 +24,7 @@ export default function SettingsPage() {
   }, [user])
 
   const GITHUB_REPO_REGEX = /^https?:\/\/(www\.)?github\.com\/[\w.-]+\/[\w.-]+\/?$/
+  const GITHUB_PROFILE_REGEX = /^https?:\/\/(www\.)?github\.com\/[\w.-]+\/?$/
   const WHATSAPP_REGEX = /^\+?[1-9]\d{6,14}$/
   const LINKEDIN_REGEX = /^https?:\/\/(www\.)?linkedin\.com\/(in|pub|company)\/[a-zA-Z0-9_%-]+(\/)?$/
 
@@ -33,10 +34,27 @@ export default function SettingsPage() {
     const trimmedWA = whatsappNumber.trim()
     const trimmedLI = linkedinUrl.trim()
 
-    if (trimmedRepo && !GITHUB_REPO_REGEX.test(trimmedRepo)) {
-      toast.error('Invalid GitHub Repository URL. Use format: https://github.com/username/repo')
-      return
-    }
+  if (trimmedRepo) {
+  if (
+    user.role === 'MANAGER' &&
+    !GITHUB_PROFILE_REGEX.test(trimmedRepo)
+  ) {
+    toast.error(
+      'Invalid GitHub Profile URL. Use format: https://github.com/username'
+    )
+    return
+  }
+
+  if (
+    user.role === 'INTERN' &&
+    !GITHUB_REPO_REGEX.test(trimmedRepo)
+  ) {
+    toast.error(
+      'Invalid GitHub Repository URL. Use format: https://github.com/username/repository'
+    )
+    return
+  }
+}
     if (trimmedWA && !WHATSAPP_REGEX.test(trimmedWA)) {
       toast.error('Invalid WhatsApp number. Use international format, e.g. +919876543210')
       return
@@ -72,9 +90,17 @@ export default function SettingsPage() {
     if (!link) return
     try {
       await navigator.clipboard.writeText(link)
-      toast.success('Repo link copied to clipboard!')
+      toast.success(
+  user?.role === 'MANAGER'
+    ? 'GitHub profile link copied to clipboard!'
+    : 'Repo link copied to clipboard!'
+)
     } catch {
-      toast.error('Failed to copy repo link')
+      toast.error(
+  user?.role === 'MANAGER'
+    ? 'Failed to copy GitHub profile link'
+    : 'Failed to copy repo link'
+)
     }
   }
 
@@ -103,7 +129,7 @@ export default function SettingsPage() {
         )}
 
         {/* Contact & Integration fields for interns */}
-        {user?.role === 'INTERN' && (
+        {(user?.role === 'INTERN' || user?.role === 'MANAGER') && (
           <div className="border-t border-gray-100 pt-5 mt-5 space-y-5">
             <h3 className="text-sm font-semibold text-gray-900">Contact & Integration</h3>
 
@@ -140,13 +166,19 @@ export default function SettingsPage() {
                 </div>
                 <div>
                   <label htmlFor="github-repo" className="block text-xs font-medium text-gray-500 mb-1">
-                    GitHub Repo URL
-                  </label>
+                    {user?.role === 'MANAGER'
+                      ? 'GitHub Profile URL'
+                      : 'GitHub Repo URL'}
+                    </label>
                   <input
                     id="github-repo"
                     type="text"
                     className="input w-full"
-                    placeholder="https://github.com/username/repository"
+                    placeholder={
+                     user?.role === 'MANAGER'
+                     ? 'https://github.com/username'
+                     : 'https://github.com/username/repository'
+                    }
                     value={repoLink}
                     onChange={(e) => setRepoLink(e.target.value)}
                     disabled={isUpdating}
@@ -228,7 +260,9 @@ export default function SettingsPage() {
                   <div className="flex items-center gap-2 min-w-0">
                     <Edit3 size={14} className="text-gray-400 flex-shrink-0" />
                     <div className="min-w-0">
-                      <p className="text-[10px] text-gray-400 font-medium">GitHub Repository</p>
+                      <p className="text-[10px] text-gray-400 font-medium">
+                      {user?.role === 'MANAGER' ? 'GitHub Profile' : 'GitHub Repository'}
+                      </p>
                       {user.repoLink ? (
                         <div className="flex items-center gap-2">
                           <a

@@ -499,7 +499,8 @@ export default function CommandCentrePage() {
                     </div>
 
                     {/* Contact Info Section - visible to managers/admins */}
-                    {u.role === 'INTERN' && (u.whatsappNumber || u.linkedinUrl || u.repoLink) && (
+                    {(u.role === 'INTERN' || u.role === 'MANAGER') &&
+                       (u.whatsappNumber || u.linkedinUrl || u.repoLink) && (
                       <div className="mt-2 pt-2 border-t border-gray-100 space-y-1.5">
                         {u.whatsappNumber && (
                           <div className="flex items-center justify-between text-[11px]">
@@ -534,7 +535,8 @@ export default function CommandCentrePage() {
                         {u.repoLink && (
                           <div className="flex items-center justify-between text-[11px]">
                             <span className="text-gray-400 flex items-center gap-1">
-                              <Code2 size={11} className="text-gray-400" /> Repo
+                              <Code2 size={11} className="text-gray-400" />
+                                {u.role === 'MANAGER' ? 'GitHub Profile' : 'Repo'}
                             </span>
                             <div className="flex items-center gap-1.5">
                               <a
@@ -543,15 +545,23 @@ export default function CommandCentrePage() {
                                 rel="noopener noreferrer"
                                 className="text-blue-600 font-semibold hover:underline"
                               >
-                                View Repo
+                                {u.role === 'MANAGER' ? 'View Profile' : 'View Repo'}
                               </a>
                               <button
                                 onClick={async () => {
                                   try {
                                     await navigator.clipboard.writeText(u.repoLink || '')
-                                    toast.success('Repo link copied!')
+                                    toast.success(
+                                     u.role === 'MANAGER'
+                                    ? 'GitHub profile link copied!'
+                                    : 'Repo link copied!'
+                                  )
                                   } catch {
-                                    toast.error('Failed to copy')
+                                    toast.error(
+                                    u.role === 'MANAGER'
+                                   ? 'Failed to copy GitHub profile link'
+                                   : 'Failed to copy'
+                                  )
                                   }
                                 }}
                                 className="text-gray-400 hover:text-gray-600 transition-colors p-0.5 rounded hover:bg-gray-100"
