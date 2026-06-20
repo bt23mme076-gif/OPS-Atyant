@@ -23,7 +23,7 @@ export default function SettingsPage() {
     setLinkedinUrl(user?.linkedinUrl || '')
   }, [user])
 
-  const GITHUB_REPO_REGEX = /^https?:\/\/(www\.)?github\.com\/[\w.-]+\/[\w.-]+\/?$/
+  const GITHUB_USERNAME_REGEX = /^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$/
   const WHATSAPP_REGEX = /^\+?[1-9]\d{6,14}$/
   const LINKEDIN_REGEX = /^https?:\/\/(www\.)?linkedin\.com\/(in|pub|company)\/[a-zA-Z0-9_%-]+(\/)?$/
 
@@ -33,8 +33,8 @@ export default function SettingsPage() {
     const trimmedWA = whatsappNumber.trim()
     const trimmedLI = linkedinUrl.trim()
 
-    if (trimmedRepo && !GITHUB_REPO_REGEX.test(trimmedRepo)) {
-      toast.error('Invalid GitHub Repository URL. Use format: https://github.com/username/repo')
+    if (trimmedRepo && !GITHUB_USERNAME_REGEX.test(trimmedRepo)) {
+      toast.error('Invalid GitHub username. Only letters, numbers, and hyphens allowed.')
       return
     }
     if (trimmedWA && !WHATSAPP_REGEX.test(trimmedWA)) {
@@ -72,7 +72,7 @@ export default function SettingsPage() {
     if (!link) return
     try {
       await navigator.clipboard.writeText(link)
-      toast.success('Repo link copied to clipboard!')
+      toast.success('GitHub username copied to clipboard!')
     } catch {
       toast.error('Failed to copy repo link')
     }
@@ -139,14 +139,14 @@ export default function SettingsPage() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="github-repo" className="block text-xs font-medium text-gray-500 mb-1">
-                    GitHub Repo URL
+                  <label htmlFor="github-username" className="block text-xs font-medium text-gray-500 mb-1">
+                    GitHub Username
                   </label>
                   <input
-                    id="github-repo"
+                    id="github-username"
                     type="text"
                     className="input w-full"
-                    placeholder="https://github.com/username/repository"
+                    placeholder="e.g. johndoe"
                     value={repoLink}
                     onChange={(e) => setRepoLink(e.target.value)}
                     disabled={isUpdating}
@@ -228,16 +228,16 @@ export default function SettingsPage() {
                   <div className="flex items-center gap-2 min-w-0">
                     <Edit3 size={14} className="text-gray-400 flex-shrink-0" />
                     <div className="min-w-0">
-                      <p className="text-[10px] text-gray-400 font-medium">GitHub Repository</p>
+                      <p className="text-[10px] text-gray-400 font-medium">GitHub Username</p>
                       {user.repoLink ? (
                         <div className="flex items-center gap-2">
                           <a
-                            href={user.repoLink}
+                            href={`https://github.com/${user.repoLink}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-sm font-medium text-blue-600 hover:underline truncate block max-w-[200px]"
                           >
-                            {user.repoLink}
+                            @{user.repoLink}
                           </a>
                           <button
                             onClick={handleCopy}

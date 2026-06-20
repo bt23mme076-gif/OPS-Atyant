@@ -534,22 +534,22 @@ export default function CommandCentrePage() {
                         {u.repoLink && (
                           <div className="flex items-center justify-between text-[11px]">
                             <span className="text-gray-400 flex items-center gap-1">
-                              <Code2 size={11} className="text-gray-400" /> Repo
+                              <Code2 size={11} className="text-gray-400" /> GitHub
                             </span>
                             <div className="flex items-center gap-1.5">
                               <a
-                                href={u.repoLink}
+                                href={`https://github.com/${u.repoLink}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-blue-600 font-semibold hover:underline"
                               >
-                                View Repo
+                                @{u.repoLink}
                               </a>
                               <button
                                 onClick={async () => {
                                   try {
                                     await navigator.clipboard.writeText(u.repoLink || '')
-                                    toast.success('Repo link copied!')
+                                    toast.success('Username copied!')
                                   } catch {
                                     toast.error('Failed to copy')
                                   }
