@@ -29,6 +29,7 @@ export interface RawMentor {
   companyDomain?: string
   primaryDomain?: string
   price?: number
+  services?: string[]
   yearsOfExperience?: number
   milestones?: unknown[]
   availability?: { weekly?: unknown[] } | null
@@ -65,21 +66,31 @@ function nonEmpty(v: unknown): boolean {
   return Boolean(v)
 }
 
+export function mentorServices(m: RawMentor): { video: boolean; audio: boolean; chat: boolean } {
+  const s = m.services ?? []
+  return {
+    video: s.includes('video-call') || s.includes('video_call') || s.includes('video'),
+    audio: s.includes('audio-call') || s.includes('audio_call') || s.includes('audio'),
+    chat:  s.includes('chat') || s.includes('personal-chat'),
+  }
+}
+
 export function scoreProfile(m: RawMentor): ProfileField[] {
+  const svc = mentorServices(m)
   return [
-    { key: 'profilePicture',   label: 'Profile Photo',  filled: nonEmpty(m.profilePicture) },
-    { key: 'bio',              label: 'Bio',            filled: nonEmpty(m.bio) },
-    { key: 'education',        label: 'Education',      filled: nonEmpty(m.education) },
-    { key: 'skills',           label: 'Skills',         filled: nonEmpty(m.skills) },
-    { key: 'expertise',        label: 'Expertise',      filled: nonEmpty(m.expertise) },
-    { key: 'linkedinProfile',  label: 'LinkedIn',       filled: nonEmpty(m.linkedinProfile) },
-    { key: 'companyDomain',    label: 'Company / Domain', filled: nonEmpty(m.companyDomain) || nonEmpty(m.topCompanies) },
-    { key: 'price',            label: 'Pricing',        filled: nonEmpty(m.price) },
-    { key: 'availability',     label: 'Availability',   filled: nonEmpty(m.availability?.weekly) },
-    { key: 'yearsOfExperience',label: 'Experience',     filled: nonEmpty(m.yearsOfExperience) },
-    { key: 'milestones',       label: 'Achievements',   filled: nonEmpty(m.milestones) },
-    { key: 'primaryDomain',    label: 'Primary Domain', filled: nonEmpty(m.primaryDomain) },
-    { key: 'isVerified',       label: 'Verified',       filled: Boolean(m.isVerified) },
+    { key: 'profilePicture',    label: 'Profile Photo',    filled: nonEmpty(m.profilePicture) },
+    { key: 'bio',               label: 'Bio',              filled: nonEmpty(m.bio) },
+    { key: 'education',         label: 'Education',        filled: nonEmpty(m.education) },
+    { key: 'skills',            label: 'Skills',           filled: nonEmpty(m.skills) },
+    { key: 'expertise',         label: 'Expertise',        filled: nonEmpty(m.expertise) },
+    { key: 'linkedinProfile',   label: 'LinkedIn',         filled: nonEmpty(m.linkedinProfile) },
+    { key: 'companyDomain',     label: 'Company / Domain', filled: nonEmpty(m.companyDomain) || nonEmpty(m.topCompanies) },
+    { key: 'services',          label: 'Services',         filled: svc.video || svc.audio || svc.chat },
+    { key: 'availability',      label: 'Availability',     filled: nonEmpty(m.availability?.weekly) },
+    { key: 'yearsOfExperience', label: 'Experience',       filled: nonEmpty(m.yearsOfExperience) },
+    { key: 'milestones',        label: 'Achievements',     filled: nonEmpty(m.milestones) },
+    { key: 'primaryDomain',     label: 'Primary Domain',   filled: nonEmpty(m.primaryDomain) },
+    { key: 'isVerified',        label: 'Verified',         filled: Boolean(m.isVerified) },
   ]
 }
 
@@ -120,3 +131,4 @@ export const mentorDashboardApi = baseApi.injectEndpoints({
 })
 
 export const { useGetAtyantMentorsQuery, useGetAtyantStatsQuery } = mentorDashboardApi
+

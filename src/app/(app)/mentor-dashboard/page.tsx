@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 import {
   Users, TrendingUp, Wifi, BadgeCheck, Eye, Gauge, RefreshCw, Search,
   AlertTriangle, ChevronRight, ChevronLeft, Linkedin, CheckCircle2, XCircle, X,
+  Video, Phone, MessageCircle,
 } from 'lucide-react'
 import {
   BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area,
@@ -10,7 +11,7 @@ import {
 } from 'recharts'
 import {
   useGetAtyantMentorsQuery, useGetAtyantStatsQuery,
-  scoreProfile, completionPct, mentorName, isActive,
+  scoreProfile, completionPct, mentorName, isActive, mentorServices,
   type RawMentor,
 } from '@/store/api/mentorDashboardApi'
 import { Spinner, Empty, Button, Avatar, Badge } from '@/components/ui'
@@ -120,14 +121,40 @@ function MentorDrawer({ mentor, onClose }: { mentor: RawMentor; onClose: () => v
           </div>
 
           {/* Meta */}
-          <div className="pt-4 border-t border-gray-100 space-y-2 text-xs text-gray-500">
+          <div className="pt-4 border-t border-gray-100 space-y-3 text-xs text-gray-500">
             {mentor.linkedinProfile && (
               <a href={mentor.linkedinProfile} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-blue-600 hover:text-blue-800">
                 <Linkedin size={13} /> LinkedIn Profile
               </a>
             )}
             <p>Domain: <span className="text-gray-700 font-medium">{domainOf(mentor)}</span></p>
-            {typeof mentor.price === 'number' && <p>Price: <span className="text-gray-700 font-medium">₹{mentor.price}</span></p>}
+
+            {/* Services */}
+            <div>
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Services</p>
+              <div className="flex flex-wrap gap-2">
+                {(() => {
+                  const svc = mentorServices(mentor)
+                  const any = svc.video || svc.audio || svc.chat
+                  return <>
+                    <span className={cn('flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-medium border',
+                      svc.video ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-gray-50 text-gray-400 border-gray-200 opacity-50')}>
+                      <Video size={11} /> Video Call
+                    </span>
+                    <span className={cn('flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-medium border',
+                      svc.audio ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-gray-50 text-gray-400 border-gray-200 opacity-50')}>
+                      <Phone size={11} /> Audio Call
+                    </span>
+                    <span className={cn('flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-medium border',
+                      svc.chat ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-400 border-gray-200 opacity-50')}>
+                      <MessageCircle size={11} /> Chat
+                    </span>
+                    {!any && <span className="text-[11px] text-gray-400 italic">No services configured</span>}
+                  </>
+                })()}
+              </div>
+            </div>
+
             {mentor.lastActive && <p>Last active: <span className="text-gray-700">{formatRelative(mentor.lastActive)}</span></p>}
             {mentor.createdAt && <p>Joined: <span className="text-gray-700">{formatRelative(mentor.createdAt)}</span></p>}
           </div>
@@ -145,7 +172,7 @@ export default function MentorDashboardPage() {
   const isSuperAdmin = user?.role === ROLES.SUPER_ADMIN
 
   const { data: mentors = [], isLoading, isError, refetch, isFetching } = useGetAtyantMentorsQuery(undefined, { skip: !isSuperAdmin })
-  const { data: stats } = useGetAtyantStatsQuery()
+  const { data: stats } = useGetAtyantStatsQuery(undefined, { skip: !isSuperAdmin })
 
   const [search, setSearch] = useState('')
   const [domainFilter, setDomainFilter] = useState('all')
@@ -415,7 +442,7 @@ export default function MentorDashboardPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50/50">
-                  {['Mentor', 'Domain', 'Completion', 'Status', 'Last Active', ''].map(h => (
+                  {['Mentor', 'Domain', 'Completion', 'Status', 'Services', 'Last Active', ''].map(h => (
                     <th key={h} className="text-left px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
                   ))}
                 </tr>
@@ -452,6 +479,18 @@ export default function MentorDashboardPage() {
                             ? <Badge bgColor="#F0FDF4" textColor="#15803D" color="#16A34A">Active</Badge>
                             : <Badge bgColor="#F9FAFB" textColor="#6B7280" color="#9CA3AF">Inactive</Badge>}
                         </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        {(() => {
+                          const svc = mentorServices(m)
+                          return (
+                            <div className="flex items-center gap-1.5">
+                              <span title="Video Call" className={svc.video ? 'text-purple-600' : 'text-gray-200'}><Video size={13} /></span>
+                              <span title="Audio Call" className={svc.audio ? 'text-blue-500' : 'text-gray-200'}><Phone size={13} /></span>
+                              <span title="Chat" className={svc.chat ? 'text-green-500' : 'text-gray-200'}><MessageCircle size={13} /></span>
+                            </div>
+                          )
+                        })()}
                       </td>
                       <td className="px-4 py-3 text-xs text-gray-400">{m.lastActive ? formatRelative(m.lastActive) : '—'}</td>
                       <td className="px-4 py-3"><ChevronRight size={14} className="text-gray-300" /></td>
