@@ -12,7 +12,7 @@ import {
 } from 'recharts'
 import {
   useGetAtyantMentorsQuery, useGetAtyantStatsQuery,
-  scoreProfile, completionPct, mentorName, isActive, mentorServices,
+  scoreProfile, completionPct, mentorName, isActive, mentorServices, serviceLabels,
   type RawMentor,
 } from '@/store/api/mentorDashboardApi'
 import { Spinner, Empty, Button, Avatar, Badge } from '@/components/ui'
@@ -60,15 +60,30 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 function domainOf(m: RawMentor): string {
-  const d = m.primaryDomain || m.companyDomain ||
-    (Array.isArray(m.expertise) ? m.expertise[0] : m.expertise)
+  const exp = m.expertise
+  const expStr = Array.isArray(exp) ? String(exp[0] ?? '') : (typeof exp === 'string' ? exp : '')
+  const d = m.primaryDomain || m.companyDomain || expStr
   return (d && String(d).trim()) ? String(d) : 'Unspecified'
 }
 
+function parseStrArr(v: unknown): string[] {
+  if (!v) return []
+  if (Array.isArray(v)) return (v as unknown[]).map(String).filter(s => s && s !== 'undefined')
+  if (typeof v === 'string') {
+    const t = v.trim()
+    if (t.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(t) as unknown[]
+        return parsed.map(String).filter(s => s && s !== 'undefined' && s !== 'null')
+      } catch { /* fall through */ }
+    }
+    return t ? [t] : []
+  }
+  return []
+}
+
 function expertiseList(m: RawMentor): string[] {
-  if (!m.expertise) return []
-  if (Array.isArray(m.expertise)) return (m.expertise as string[]).filter(Boolean)
-  return [m.expertise as string]
+  return parseStrArr(m.expertise)
 }
 
 // ── Comprehensive drill-down drawer ──────────────────────────────────────────
@@ -76,24 +91,13 @@ function MentorDrawer({ mentor, onClose }: { mentor: RawMentor; onClose: () => v
   const fields = scoreProfile(mentor)
   const pct = completionPct(mentor)
   const svc = mentorServices(mentor)
+  const svcLabels = serviceLabels(mentor)
   const expertise = expertiseList(mentor)
 
   // Skills: MongoDB sometimes stores as JSON string instead of array
-  const skills: string[] = (() => {
-    const raw = mentor.skills
-    if (!raw) return []
-    if (Array.isArray(raw)) return (raw as string[]).filter(Boolean)
-    if (typeof raw === 'string') {
-      const t = raw.trim()
-      if (t.startsWith('[')) {
-        try { return (JSON.parse(t) as string[]).filter(Boolean) } catch { /* fall */ }
-      }
-      return t ? [t] : []
-    }
-    return []
-  })()
+  const skills = parseStrArr(mentor.skills as unknown)
 
-  const topCompanies = (mentor.topCompanies as string[] | undefined) ?? []
+  const topCompanies = parseStrArr(mentor.topCompanies)
   const milestones = (mentor.milestones as unknown[] | undefined) ?? []
   const education = mentor.education ?? []
   const weeklySlots = Array.isArray(mentor.availability?.weekly)
@@ -184,34 +188,56 @@ function MentorDrawer({ mentor, onClose }: { mentor: RawMentor; onClose: () => v
           {/* Services */}
           <div className="px-5 py-4 border-b border-gray-50">
             <SectionLabel>Services Offered</SectionLabel>
-            <div className="flex gap-2 flex-wrap">
-              <div className={cn(
-                'flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-medium',
-                svc.video
-                  ? 'bg-purple-50 text-purple-700 border-purple-200'
-                  : 'bg-gray-50 text-gray-300 border-gray-100'
-              )}>
-                <Video size={13} /> Video Call
+            {svcLabels.length > 0 ? (
+              // Show actual service names from the platform
+              <div className="flex gap-2 flex-wrap">
+                {svcLabels.map((label, i) => {
+                  const l = label.toLowerCase()
+                  const isVid = l.includes('video')
+                  const isAud = l.includes('audio') || l.includes('voice')
+                  const isCht = l.includes('chat') || l.includes('text') || l.includes('q&a') || l.includes('qa') || l.includes('message')
+                  const isRes = l.includes('resume') || l.includes('review') || l.includes('written')
+                  const colorClass = isVid
+                    ? 'bg-purple-50 text-purple-700 border-purple-200'
+                    : isAud
+                      ? 'bg-blue-50 text-blue-700 border-blue-200'
+                      : isCht
+                        ? 'bg-green-50 text-green-700 border-green-200'
+                        : isRes
+                          ? 'bg-amber-50 text-amber-700 border-amber-200'
+                          : 'bg-gray-100 text-gray-600 border-gray-200'
+                  return (
+                    <div key={i} className={cn('flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-medium', colorClass)}>
+                      {isVid && <Video size={13} />}
+                      {isAud && <Phone size={13} />}
+                      {isCht && <MessageCircle size={13} />}
+                      {isRes && <Star size={13} />}
+                      {label}
+                    </div>
+                  )
+                })}
               </div>
-              <div className={cn(
-                'flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-medium',
-                svc.audio
-                  ? 'bg-blue-50 text-blue-700 border-blue-200'
-                  : 'bg-gray-50 text-gray-300 border-gray-100'
-              )}>
-                <Phone size={13} /> Audio Call
-              </div>
-              <div className={cn(
-                'flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-medium',
-                svc.chat
-                  ? 'bg-green-50 text-green-700 border-green-200'
-                  : 'bg-gray-50 text-gray-300 border-gray-100'
-              )}>
-                <MessageCircle size={13} /> Chat
-              </div>
-            </div>
-            {!svc.video && !svc.audio && !svc.chat && (
-              <p className="text-xs text-gray-400 italic mt-2">No services configured yet</p>
+            ) : (
+              // Fall back to generic video/audio/chat detection
+              <>
+                <div className="flex gap-2 flex-wrap">
+                  <div className={cn('flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-medium',
+                    svc.video ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-gray-50 text-gray-300 border-gray-100')}>
+                    <Video size={13} /> Video Call
+                  </div>
+                  <div className={cn('flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-medium',
+                    svc.audio ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-gray-50 text-gray-300 border-gray-100')}>
+                    <Phone size={13} /> Audio Call
+                  </div>
+                  <div className={cn('flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-medium',
+                    svc.chat ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-300 border-gray-100')}>
+                    <MessageCircle size={13} /> Chat
+                  </div>
+                </div>
+                {!svc.video && !svc.audio && !svc.chat && (
+                  <p className="text-xs text-gray-400 italic mt-2">No services configured yet</p>
+                )}
+              </>
             )}
           </div>
 
@@ -236,7 +262,7 @@ function MentorDrawer({ mentor, onClose }: { mentor: RawMentor; onClose: () => v
                   </span>
                 </div>
               )}
-              {mentor.yearsOfExperience != null && (
+              {!!mentor.yearsOfExperience && Number(mentor.yearsOfExperience) > 0 && (
                 <div className="flex items-center gap-2 text-sm">
                   <Clock size={13} className="text-gray-400 flex-shrink-0" />
                   <span className="text-gray-400 text-xs">Experience</span>
@@ -259,13 +285,6 @@ function MentorDrawer({ mentor, onClose }: { mentor: RawMentor; onClose: () => v
                     className="text-blue-600 hover:underline font-medium text-xs">
                     View LinkedIn Profile ↗
                   </a>
-                </div>
-              )}
-              {mentor.phone && (
-                <div className="flex items-center gap-2 text-sm">
-                  <Phone size={13} className="text-gray-400 flex-shrink-0" />
-                  <span className="text-gray-400 text-xs">Phone</span>
-                  <span className="font-medium text-gray-700 ml-1">{mentor.phone}</span>
                 </div>
               )}
             </div>
@@ -338,18 +357,22 @@ function MentorDrawer({ mentor, onClose }: { mentor: RawMentor; onClose: () => v
             <div className="px-5 py-4 border-b border-gray-50">
               <SectionLabel>Achievements</SectionLabel>
               <div className="space-y-2">
-                {milestones.map((m, i) => (
-                  <div key={i} className="flex items-start gap-2">
-                    <Star size={12} className="text-amber-400 flex-shrink-0 mt-1" />
-                    <span className="text-sm text-gray-600">
-                      {typeof m === 'string'
-                        ? m
-                        : (m && typeof m === 'object' && 'title' in m)
-                          ? String((m as { title: unknown }).title)
-                          : JSON.stringify(m)}
-                    </span>
-                  </div>
-                ))}
+                {milestones.map((m, i) => {
+                  let text = ''
+                  if (typeof m === 'string') {
+                    text = m
+                  } else if (m && typeof m === 'object') {
+                    const o = m as Record<string, unknown>
+                    text = String(o.title ?? o.name ?? o.description ?? o.text ?? o.milestone ?? Object.values(o).find(v => typeof v === 'string') ?? '')
+                  }
+                  if (!text) return null
+                  return (
+                    <div key={i} className="flex items-start gap-2">
+                      <Star size={12} className="text-amber-400 flex-shrink-0 mt-1" />
+                      <span className="text-sm text-gray-600">{text}</span>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           )}
@@ -368,13 +391,15 @@ function MentorDrawer({ mentor, onClose }: { mentor: RawMentor; onClose: () => v
               {weeklySlots.length > 0 ? (
                 <div className="space-y-1.5">
                   {weeklySlots.map((slot, i) => {
-                    const day = String(slot.day ?? slot.dayOfWeek ?? slot.weekday ?? '—')
-                    const time = String(slot.time ?? slot.startTime ?? slot.from ?? '')
-                    const endTime = String(slot.endTime ?? slot.to ?? '')
-                    const sType = String(
-                      slot.serviceType ?? slot.type ?? slot.service ?? slot.sessionType ?? ''
-                    ).toLowerCase()
-                    const timeStr = endTime ? `${time} – ${endTime}` : time
+                    const dayRaw = slot.day ?? slot.dayOfWeek ?? slot.weekday
+                    const day = dayRaw != null ? String(dayRaw) : '—'
+                    const timeRaw = slot.time ?? slot.startTime ?? slot.from
+                    const endRaw = slot.endTime ?? slot.to
+                    const time = timeRaw != null ? String(timeRaw) : ''
+                    const endTime = endRaw != null ? String(endRaw) : ''
+                    const sTypeRaw = slot.serviceType ?? slot.type ?? slot.service ?? slot.sessionType
+                    const sType = sTypeRaw != null ? String(sTypeRaw).toLowerCase() : ''
+                    const timeStr = time && endTime ? `${time} – ${endTime}` : time
                     return (
                       <div key={i} className="flex items-center justify-between text-xs bg-gray-50 rounded-lg px-3 py-2">
                         <span className="text-gray-700 font-medium capitalize">{day}</span>

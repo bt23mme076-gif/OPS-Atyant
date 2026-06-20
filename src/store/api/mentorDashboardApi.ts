@@ -1,8 +1,5 @@
 import { baseApi } from './baseApi'
 
-// ── Raw mentor document shape (from MongoDB `users` collection, role: 'mentor') ──
-// Only the fields the dashboard relies on are typed; the backend returns the full
-// document minus secrets, so unknown extra keys are allowed via the index signature.
 export interface RawEducation {
   institutionName?: string
   institution?: string
@@ -22,19 +19,21 @@ export interface RawMentor {
   profilePicture?: string
   bio?: string
   education?: RawEducation[]
-  skills?: string[]
-  expertise?: string | string[]
+  skills?: unknown          // may be string[], JSON string, or other
+  expertise?: unknown       // may be string, string[], or JSON string
   linkedinProfile?: string
-  topCompanies?: string[]
+  topCompanies?: unknown    // may be string[] or JSON string
   companyDomain?: string
   primaryDomain?: string
   price?: number
-  services?: string[]
-  sessionTypes?: string[]
-  serviceTypes?: string[]
+  services?: unknown        // may be string[], object[], or object map
+  sessionTypes?: unknown
+  serviceTypes?: unknown
   yearsOfExperience?: number
   milestones?: unknown[]
   availability?: { weekly?: unknown[] } | null
+  city?: string
+  location?: string
   isVerified?: boolean
   mentorListed?: boolean
   isOnline?: boolean
@@ -52,78 +51,144 @@ export interface AtyantStats {
   onlineMentors: number
 }
 
-// ── Profile-completion scoring ───────────────────────────────────────────────
-// The 13 fields that define a "complete" mentor profile. Each is weighted equally.
 export interface ProfileField {
   key: string
   label: string
   filled: boolean
 }
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
 function nonEmpty(v: unknown): boolean {
   if (v == null) return false
-  if (typeof v === 'string') return v.trim().length > 0
   if (Array.isArray(v)) return v.length > 0
+  if (typeof v === 'string') {
+    const t = v.trim()
+    if (!t || t === '[]' || t === '{}') return false
+    if (t.startsWith('[')) {
+      try { return (JSON.parse(t) as unknown[]).length > 0 } catch { /* fall */ }
+    }
+    return true
+  }
   if (typeof v === 'number') return v > 0
+  if (typeof v === 'object') return Object.keys(v as object).length > 0
   return Boolean(v)
 }
 
-function parseStringArray(v: unknown): string[] {
-  if (Array.isArray(v)) return (v as unknown[]).map(String)
+// Parse any value into a flat list of strings (handles arrays of objects too)
+function extractStrings(v: unknown): string[] {
+  if (!v) return []
   if (typeof v === 'string') {
-    const trimmed = v.trim()
-    if (trimmed.startsWith('[')) {
-      try { return (JSON.parse(trimmed) as unknown[]).map(String) } catch { /* fall through */ }
+    const t = v.trim()
+    if (t.startsWith('[')) {
+      try { return extractStrings(JSON.parse(t)) } catch { /* fall */ }
     }
-    return trimmed ? [trimmed] : []
+    return t ? [t] : []
+  }
+  if (Array.isArray(v)) {
+    return v.flatMap(item => {
+      if (typeof item === 'string') return [item]
+      if (item && typeof item === 'object') {
+        const o = item as Record<string, unknown>
+        // Skip explicitly disabled services
+        if (o.enabled === false || o.active === false || o.isEnabled === false) return []
+        // Prefer type/name/id/slug/serviceType fields
+        const typeVal = o.type ?? o.name ?? o.id ?? o.slug ?? o.serviceType ?? o.service
+        if (typeVal && typeof typeVal === 'string') return [typeVal]
+        // Fallback: collect all string values from the object
+        return Object.values(o).filter((x): x is string => typeof x === 'string')
+      }
+      return []
+    })
+  }
+  if (typeof v === 'object') {
+    // Object map: { 'video-call': true/enabled-object, 'audio-call': false }
+    return Object.entries(v as Record<string, unknown>)
+      .filter(([, val]) => {
+        if (typeof val === 'boolean') return val
+        if (val && typeof val === 'object') {
+          const o = val as Record<string, unknown>
+          return o.enabled !== false  // enabled unless explicitly false
+        }
+        return Boolean(val)
+      })
+      .map(([key]) => key)
   }
   return []
 }
 
+// ── Services ─────────────────────────────────────────────────────────────────
+
 export function mentorServices(m: RawMentor): { video: boolean; audio: boolean; chat: boolean } {
-  // Collect all possible service strings from multiple field locations
-  const direct = parseStringArray(m.services)
-  const sessionTypes = parseStringArray(m.sessionTypes)
-  const serviceTypes = parseStringArray(m.serviceTypes)
+  const allStrings = [
+    ...extractStrings(m.services),
+    ...extractStrings(m.sessionTypes),
+    ...extractStrings(m.serviceTypes),
+  ].map(s => s.toLowerCase().replace(/[\s_]/g, '-').trim())
 
-  // Also extract service types from availability.weekly slots
-  const slots = Array.isArray(m.availability?.weekly)
-    ? (m.availability!.weekly as Record<string, unknown>[])
-    : []
-  const fromSlots = slots.flatMap(slot =>
-    parseStringArray(slot.serviceType ?? slot.type ?? slot.service ?? slot.sessionType ?? '')
-  )
-
-  const all = [...direct, ...sessionTypes, ...serviceTypes, ...fromSlots]
-    .map(s => s.toLowerCase().trim())
-
-  const VIDEO = ['video-call', 'video_call', 'video', 'videocall', 'video call']
-  const AUDIO = ['audio-call', 'audio_call', 'audio', 'audiocall', 'audio call', 'voice-call', 'voice_call']
-  const CHAT  = ['chat', 'personal-chat', 'personal_chat', 'text', 'message']
+  const has = (keywords: string[]) =>
+    allStrings.some(s => keywords.some(k => s.includes(k)))
 
   return {
-    video: all.some(s => VIDEO.includes(s)),
-    audio: all.some(s => AUDIO.includes(s)),
-    chat:  all.some(s => CHAT.includes(s)),
+    video: has(['video']),
+    audio: has(['audio', 'voice']),
+    // text-qa, chat, personal-chat, message, text, q&a, qa all count as chat
+    chat:  has(['chat', 'text', 'message', 'q&a', 'qa']),
   }
 }
 
+// Returns true if this mentor has ANY enabled service
+export function hasAnyService(m: RawMentor): boolean {
+  const svc = mentorServices(m)
+  return svc.video || svc.audio || svc.chat
+}
+
+// Returns all enabled service labels for display
+export function serviceLabels(m: RawMentor): string[] {
+  const raw = m.services
+  if (!raw) return []
+
+  // If it's an array of objects with name/type fields, extract meaningful labels
+  if (Array.isArray(raw)) {
+    const labels: string[] = []
+    raw.forEach(item => {
+      if (typeof item === 'string') {
+        labels.push(item)
+      } else if (item && typeof item === 'object') {
+        const o = item as Record<string, unknown>
+        // Skip if explicitly disabled
+        if (o.enabled === false) return
+        const label = String(o.name ?? o.type ?? o.id ?? o.slug ?? '')
+        if (label) labels.push(label)
+      }
+    })
+    return labels
+  }
+  return extractStrings(raw)
+}
+
+// ── Profile completion ────────────────────────────────────────────────────────
+// Mirrors Atyant platform's own checklist (12 fields, no Verified — that's admin-only)
+
 export function scoreProfile(m: RawMentor): ProfileField[] {
   const svc = mentorServices(m)
+  const hasAvailability = nonEmpty(m.availability?.weekly) ||
+    (m.availability != null && typeof m.availability === 'object' &&
+      Object.keys(m.availability as object).length > 0)
+
   return [
     { key: 'profilePicture',    label: 'Profile Photo',    filled: nonEmpty(m.profilePicture) },
     { key: 'bio',               label: 'Bio',              filled: nonEmpty(m.bio) },
     { key: 'education',         label: 'Education',        filled: nonEmpty(m.education) },
-    { key: 'skills',            label: 'Skills',           filled: nonEmpty(m.skills) },
     { key: 'expertise',         label: 'Expertise',        filled: nonEmpty(m.expertise) },
+    { key: 'skills',            label: 'Skills',           filled: nonEmpty(m.skills) },
     { key: 'linkedinProfile',   label: 'LinkedIn',         filled: nonEmpty(m.linkedinProfile) },
     { key: 'companyDomain',     label: 'Company / Domain', filled: nonEmpty(m.companyDomain) || nonEmpty(m.topCompanies) },
+    { key: 'primaryDomain',     label: 'Mentoring Domain', filled: nonEmpty(m.primaryDomain) },
     { key: 'services',          label: 'Services',         filled: svc.video || svc.audio || svc.chat },
-    { key: 'availability',      label: 'Availability',     filled: nonEmpty(m.availability?.weekly) },
+    { key: 'availability',      label: 'Availability',     filled: hasAvailability },
     { key: 'yearsOfExperience', label: 'Experience',       filled: nonEmpty(m.yearsOfExperience) },
     { key: 'milestones',        label: 'Achievements',     filled: nonEmpty(m.milestones) },
-    { key: 'primaryDomain',     label: 'Primary Domain',   filled: nonEmpty(m.primaryDomain) },
-    { key: 'isVerified',        label: 'Verified',         filled: Boolean(m.isVerified) },
   ]
 }
 
@@ -143,7 +208,7 @@ export function isActive(m: RawMentor, days = 7): boolean {
   return new Date(m.lastActive).getTime() >= cutoff
 }
 
-// ── API endpoints ────────────────────────────────────────────────────────────
+// ── API ───────────────────────────────────────────────────────────────────────
 export const mentorDashboardApi = baseApi.injectEndpoints({
   endpoints: (b) => ({
     getAtyantMentors: b.query<RawMentor[], { limit?: number; skip?: number } | void>({
@@ -164,4 +229,3 @@ export const mentorDashboardApi = baseApi.injectEndpoints({
 })
 
 export const { useGetAtyantMentorsQuery, useGetAtyantStatsQuery } = mentorDashboardApi
-
