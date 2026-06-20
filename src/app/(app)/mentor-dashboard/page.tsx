@@ -12,8 +12,8 @@ import {
 } from 'recharts'
 import {
   useGetAtyantMentorsQuery, useGetAtyantStatsQuery,
-  scoreProfile, completionPct, mentorName, isActive, mentorServices, serviceLabels,
-  type RawMentor,
+  scoreProfile, completionPct, mentorName, isActive, mentorServices, serviceLabels, dayName,
+  type RawMentor, type RawWeeklySlot,
 } from '@/store/api/mentorDashboardApi'
 import { Spinner, Empty, Button, Avatar, Badge } from '@/components/ui'
 import { useCurrentUser } from '@/store/hooks'
@@ -100,8 +100,8 @@ function MentorDrawer({ mentor, onClose }: { mentor: RawMentor; onClose: () => v
   const topCompanies = parseStrArr(mentor.topCompanies)
   const milestones = (mentor.milestones as unknown[] | undefined) ?? []
   const education = mentor.education ?? []
-  const weeklySlots = Array.isArray(mentor.availability?.weekly)
-    ? (mentor.availability!.weekly as Record<string, unknown>[])
+  const weeklySlots: RawWeeklySlot[] = Array.isArray(mentor.availability?.weekly)
+    ? (mentor.availability!.weekly as RawWeeklySlot[])
     : []
   const pctColor = pct >= 75 ? '#16A34A' : pct >= 50 ? '#D97706' : '#DC2626'
 
@@ -188,24 +188,14 @@ function MentorDrawer({ mentor, onClose }: { mentor: RawMentor; onClose: () => v
           {/* Services */}
           <div className="px-5 py-4 border-b border-gray-50">
             <SectionLabel>Services Offered</SectionLabel>
-            {/* TEMP DEBUG */}
-            <pre className="text-[9px] bg-gray-100 rounded p-1 mb-2 overflow-x-auto max-h-28 text-gray-500">
-              {JSON.stringify(
-                Object.fromEntries(
-                  Object.entries(mentor).filter(([k]) =>
-                    !['_id','password','accessToken','refreshToken','verificationToken','passwordResetToken','bio','education','milestones','skills','expertise','name','email','phone','linkedinProfile','topCompanies','profilePicture'].includes(k)
-                  )
-                ), null, 1)}
-            </pre>
-            {svcLabels.length > 0 ? (
-              // Show actual service names from the platform
-              <div className="flex gap-2 flex-wrap">
-                {svcLabels.map((label, i) => {
+            <div className="flex gap-2 flex-wrap">
+              {svcLabels.length > 0 ? (
+                svcLabels.map((label, i) => {
                   const l = label.toLowerCase()
                   const isVid = l.includes('video')
                   const isAud = l.includes('audio') || l.includes('voice')
                   const isCht = l.includes('chat') || l.includes('text') || l.includes('q&a') || l.includes('qa') || l.includes('message')
-                  const isRes = l.includes('resume') || l.includes('review') || l.includes('written')
+                  const isRes = l.includes('resume') || l.includes('review')
                   const colorClass = isVid
                     ? 'bg-purple-50 text-purple-700 border-purple-200'
                     : isAud
@@ -224,12 +214,9 @@ function MentorDrawer({ mentor, onClose }: { mentor: RawMentor; onClose: () => v
                       {label}
                     </div>
                   )
-                })}
-              </div>
-            ) : (
-              // Fall back to generic video/audio/chat detection
-              <>
-                <div className="flex gap-2 flex-wrap">
+                })
+              ) : (
+                <>
                   <div className={cn('flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-medium',
                     svc.video ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-gray-50 text-gray-300 border-gray-100')}>
                     <Video size={13} /> Video Call
@@ -242,11 +229,11 @@ function MentorDrawer({ mentor, onClose }: { mentor: RawMentor; onClose: () => v
                     svc.chat ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-300 border-gray-100')}>
                     <MessageCircle size={13} /> Chat
                   </div>
-                </div>
-                {!svc.video && !svc.audio && !svc.chat && (
-                  <p className="text-xs text-gray-400 italic mt-2">No services configured yet</p>
-                )}
-              </>
+                </>
+              )}
+            </div>
+            {svcLabels.length === 0 && !svc.video && !svc.audio && !svc.chat && (
+              <p className="text-xs text-gray-400 italic mt-2">No services configured yet</p>
             )}
           </div>
 
@@ -387,58 +374,38 @@ function MentorDrawer({ mentor, onClose }: { mentor: RawMentor; onClose: () => v
           )}
 
           {/* Availability */}
-          {mentor.availability != null && (
+          {weeklySlots.length > 0 && (
             <div className="px-5 py-4 border-b border-gray-50">
               <SectionLabel>
                 Availability
-                {weeklySlots.length > 0 && (
-                  <span className="ml-1 normal-case font-normal text-gray-400">
-                    ({weeklySlots.length} slot{weeklySlots.length !== 1 ? 's' : ''})
-                  </span>
-                )}
+                <span className="ml-1 normal-case font-normal text-gray-400">
+                  ({weeklySlots.reduce((sum, s) => sum + (s.slots?.length ?? 0), 0)} slots/week)
+                </span>
               </SectionLabel>
-              {weeklySlots.length > 0 ? (
-                <div className="space-y-1.5">
-                  {weeklySlots.map((slot, i) => {
-                    const dayRaw = slot.day ?? slot.dayOfWeek ?? slot.weekday
-                    const day = dayRaw != null ? String(dayRaw) : '—'
-                    const timeRaw = slot.time ?? slot.startTime ?? slot.from
-                    const endRaw = slot.endTime ?? slot.to
-                    const time = timeRaw != null ? String(timeRaw) : ''
-                    const endTime = endRaw != null ? String(endRaw) : ''
-                    const sTypeRaw = slot.serviceType ?? slot.type ?? slot.service ?? slot.sessionType
-                    const sType = sTypeRaw != null ? String(sTypeRaw).toLowerCase() : ''
-                    const timeStr = time && endTime ? `${time} – ${endTime}` : time
-                    return (
-                      <div key={i} className="flex items-center justify-between text-xs bg-gray-50 rounded-lg px-3 py-2">
-                        <span className="text-gray-700 font-medium capitalize">{day}</span>
-                        <div className="flex items-center gap-2">
-                          {timeStr && <span className="text-gray-400">{timeStr}</span>}
-                          {sType && (
-                            <span className={cn(
-                              'flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium',
-                              sType.includes('video')
-                                ? 'bg-purple-50 text-purple-700'
-                                : sType.includes('audio') || sType.includes('voice')
-                                  ? 'bg-blue-50 text-blue-700'
-                                  : sType.includes('chat') || sType.includes('text')
-                                    ? 'bg-green-50 text-green-700'
-                                    : 'bg-gray-100 text-gray-500'
-                            )}>
-                              {sType.includes('video') && <Video size={9} />}
-                              {(sType.includes('audio') || sType.includes('voice')) && <Phone size={9} />}
-                              {(sType.includes('chat') || sType.includes('text')) && <MessageCircle size={9} />}
-                              {sType}
-                            </span>
-                          )}
-                        </div>
+              <div className="space-y-2">
+                {weeklySlots.map((entry, i) => (
+                  <div key={i} className="bg-gray-50 rounded-lg px-3 py-2">
+                    <p className="text-xs font-semibold text-gray-700 mb-1">
+                      {entry.day != null ? dayName(entry.day) : '—'}
+                      <span className="ml-1.5 font-normal text-gray-400">
+                        {entry.slots?.length ?? 0} slot{entry.slots?.length !== 1 ? 's' : ''}
+                      </span>
+                    </p>
+                    {entry.slots && entry.slots.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {entry.slots.map((t, j) => (
+                          <span key={j} className="px-1.5 py-0.5 bg-white border border-gray-200 rounded text-[10px] text-gray-500 font-mono">
+                            {t}
+                          </span>
+                        ))}
                       </div>
-                    )
-                  })}
-                </div>
-              ) : (
-                <p className="text-xs text-gray-400 italic">Availability configured but no weekly slots found</p>
-              )}
+                    )}
+                  </div>
+                ))}
+                {mentor.availability?.timezone && (
+                  <p className="text-[10px] text-gray-400 mt-1">Timezone: {mentor.availability.timezone}</p>
+                )}
+              </div>
             </div>
           )}
 

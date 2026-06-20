@@ -9,9 +9,16 @@ export interface RawEducation {
   cgpa?: string | number
 }
 
+export interface RawWeeklySlot {
+  day?: number        // 0=Sun, 1=Mon … 6=Sat
+  slots?: string[]    // ["08:00", "09:00"]
+  _id?: string
+}
+
 export interface RawMentor {
   _id: string
   name?: string
+  username?: string   // Atyant stores display name here
   fullName?: string
   email?: string
   phone?: string
@@ -19,25 +26,32 @@ export interface RawMentor {
   profilePicture?: string
   bio?: string
   education?: RawEducation[]
-  skills?: unknown          // may be string[], JSON string, or other
-  expertise?: unknown       // may be string, string[], or JSON string
+  skills?: unknown
+  expertise?: unknown
   linkedinProfile?: string
-  topCompanies?: unknown    // may be string[] or JSON string
+  topCompanies?: unknown
   companyDomain?: string
   primaryDomain?: string
   price?: number
-  services?: unknown        // may be string[], object[], or object map
-  sessionTypes?: unknown
-  serviceTypes?: unknown
+  servicesOffered?: string[]   // PRIMARY field: ["text-qa","audio-call","video-call"]
+  services?: unknown           // legacy / fallback
+  sessionTypes?: unknown       // legacy / fallback
+  serviceTypes?: unknown       // legacy / fallback
   yearsOfExperience?: number
   milestones?: unknown[]
-  availability?: { weekly?: unknown[] } | null
+  availability?: {
+    weekly?: RawWeeklySlot[]
+    timezone?: string
+    advanceNoticeHours?: number
+    maxWeeksAhead?: number
+  } | null
   city?: string
-  location?: string
+  specialTags?: string[]
   isVerified?: boolean
   mentorListed?: boolean
   isOnline?: boolean
   lastActive?: string
+  lastLogin?: string
   createdAt?: string
   updatedAt?: string
   profileStrength?: number
@@ -57,7 +71,7 @@ export interface ProfileField {
   filled: boolean
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function nonEmpty(v: unknown): boolean {
   if (v == null) return false
@@ -75,7 +89,6 @@ function nonEmpty(v: unknown): boolean {
   return Boolean(v)
 }
 
-// Parse any value into a flat list of strings (handles arrays of objects too)
 function extractStrings(v: unknown): string[] {
   if (!v) return []
   if (typeof v === 'string') {
@@ -90,26 +103,19 @@ function extractStrings(v: unknown): string[] {
       if (typeof item === 'string') return [item]
       if (item && typeof item === 'object') {
         const o = item as Record<string, unknown>
-        // Skip explicitly disabled services
         if (o.enabled === false || o.active === false || o.isEnabled === false) return []
-        // Prefer type/name/id/slug/serviceType fields
         const typeVal = o.type ?? o.name ?? o.id ?? o.slug ?? o.serviceType ?? o.service
         if (typeVal && typeof typeVal === 'string') return [typeVal]
-        // Fallback: collect all string values from the object
         return Object.values(o).filter((x): x is string => typeof x === 'string')
       }
       return []
     })
   }
   if (typeof v === 'object') {
-    // Object map: { 'video-call': true/enabled-object, 'audio-call': false }
     return Object.entries(v as Record<string, unknown>)
       .filter(([, val]) => {
         if (typeof val === 'boolean') return val
-        if (val && typeof val === 'object') {
-          const o = val as Record<string, unknown>
-          return o.enabled !== false  // enabled unless explicitly false
-        }
+        if (val && typeof val === 'object') return (val as Record<string, unknown>).enabled !== false
         return Boolean(val)
       })
       .map(([key]) => key)
@@ -117,64 +123,63 @@ function extractStrings(v: unknown): string[] {
   return []
 }
 
-// ── Services ─────────────────────────────────────────────────────────────────
+// ── Services ──────────────────────────────────────────────────────────────────
+
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+export function dayName(n: number): string {
+  return DAY_NAMES[n] ?? String(n)
+}
+
+// Maps raw service slugs to display labels
+export function serviceDisplayName(slug: string): string {
+  const map: Record<string, string> = {
+    'text-qa': 'Text Q&A',
+    'textqa': 'Text Q&A',
+    'text_qa': 'Text Q&A',
+    'audio-call': 'Audio Call',
+    'audio_call': 'Audio Call',
+    'audio': 'Audio Call',
+    'video-call': 'Video Call',
+    'video_call': 'Video Call',
+    'video': 'Video Call',
+    'chat': 'Chat',
+    'message': 'Chat',
+    'resume-review': 'Resume Review',
+    'resume_review': 'Resume Review',
+  }
+  return map[slug.toLowerCase()] ?? slug
+}
 
 export function mentorServices(m: RawMentor): { video: boolean; audio: boolean; chat: boolean } {
-  const allStrings = [
+  // servicesOffered is the primary field in Atyant's MongoDB
+  const primary = m.servicesOffered ?? []
+  const fallback = [
     ...extractStrings(m.services),
     ...extractStrings(m.sessionTypes),
     ...extractStrings(m.serviceTypes),
-  ].map(s => s.toLowerCase().replace(/[\s_]/g, '-').trim())
+  ]
+  const all = [...primary, ...fallback].map(s => s.toLowerCase().replace(/[\s_]/g, '-').trim())
 
-  const has = (keywords: string[]) =>
-    allStrings.some(s => keywords.some(k => s.includes(k)))
+  const has = (kws: string[]) => all.some(s => kws.some(k => s.includes(k)))
 
   return {
     video: has(['video']),
     audio: has(['audio', 'voice']),
-    // text-qa, chat, personal-chat, message, text, q&a, qa all count as chat
     chat:  has(['chat', 'text', 'message', 'q&a', 'qa']),
   }
 }
 
-// Returns true if this mentor has ANY enabled service
-export function hasAnyService(m: RawMentor): boolean {
-  const svc = mentorServices(m)
-  return svc.video || svc.audio || svc.chat
-}
-
-// Returns all enabled service labels for display
 export function serviceLabels(m: RawMentor): string[] {
-  const raw = m.services
-  if (!raw) return []
-
-  // If it's an array of objects with name/type fields, extract meaningful labels
-  if (Array.isArray(raw)) {
-    const labels: string[] = []
-    raw.forEach(item => {
-      if (typeof item === 'string') {
-        labels.push(item)
-      } else if (item && typeof item === 'object') {
-        const o = item as Record<string, unknown>
-        // Skip if explicitly disabled
-        if (o.enabled === false) return
-        const label = String(o.name ?? o.type ?? o.id ?? o.slug ?? '')
-        if (label) labels.push(label)
-      }
-    })
-    return labels
-  }
-  return extractStrings(raw)
+  const raw = m.servicesOffered ?? extractStrings(m.services)
+  return raw.map(serviceDisplayName)
 }
 
-// ── Profile completion ────────────────────────────────────────────────────────
-// Mirrors Atyant platform's own checklist (12 fields, no Verified — that's admin-only)
+// ── Profile completion ─────────────────────────────────────────────────────────
 
 export function scoreProfile(m: RawMentor): ProfileField[] {
   const svc = mentorServices(m)
-  const hasAvailability = nonEmpty(m.availability?.weekly) ||
-    (m.availability != null && typeof m.availability === 'object' &&
-      Object.keys(m.availability as object).length > 0)
+  const hasServices = (m.servicesOffered?.length ?? 0) > 0 || svc.video || svc.audio || svc.chat
+  const hasAvailability = nonEmpty(m.availability?.weekly)
 
   return [
     { key: 'profilePicture',    label: 'Profile Photo',    filled: nonEmpty(m.profilePicture) },
@@ -185,7 +190,7 @@ export function scoreProfile(m: RawMentor): ProfileField[] {
     { key: 'linkedinProfile',   label: 'LinkedIn',         filled: nonEmpty(m.linkedinProfile) },
     { key: 'companyDomain',     label: 'Company / Domain', filled: nonEmpty(m.companyDomain) || nonEmpty(m.topCompanies) },
     { key: 'primaryDomain',     label: 'Mentoring Domain', filled: nonEmpty(m.primaryDomain) },
-    { key: 'services',          label: 'Services',         filled: svc.video || svc.audio || svc.chat },
+    { key: 'servicesOffered',   label: 'Services',         filled: hasServices },
     { key: 'availability',      label: 'Availability',     filled: hasAvailability },
     { key: 'yearsOfExperience', label: 'Experience',       filled: nonEmpty(m.yearsOfExperience) },
     { key: 'milestones',        label: 'Achievements',     filled: nonEmpty(m.milestones) },
@@ -194,18 +199,16 @@ export function scoreProfile(m: RawMentor): ProfileField[] {
 
 export function completionPct(m: RawMentor): number {
   const fields = scoreProfile(m)
-  const filled = fields.filter(f => f.filled).length
-  return Math.round((filled / fields.length) * 100)
+  return Math.round(fields.filter(f => f.filled).length / fields.length * 100)
 }
 
 export function mentorName(m: RawMentor): string {
-  return m.name || m.fullName || m.email?.split('@')[0] || 'Unknown'
+  return m.name || m.username || m.fullName || m.email?.split('@')[0] || 'Unknown'
 }
 
 export function isActive(m: RawMentor, days = 7): boolean {
   if (!m.lastActive) return false
-  const cutoff = Date.now() - days * 24 * 60 * 60 * 1000
-  return new Date(m.lastActive).getTime() >= cutoff
+  return new Date(m.lastActive).getTime() >= Date.now() - days * 24 * 60 * 60 * 1000
 }
 
 // ── API ───────────────────────────────────────────────────────────────────────
