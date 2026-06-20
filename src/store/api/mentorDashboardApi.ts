@@ -30,6 +30,8 @@ export interface RawMentor {
   primaryDomain?: string
   price?: number
   services?: string[]
+  sessionTypes?: string[]
+  serviceTypes?: string[]
   yearsOfExperience?: number
   milestones?: unknown[]
   availability?: { weekly?: unknown[] } | null
@@ -66,12 +68,43 @@ function nonEmpty(v: unknown): boolean {
   return Boolean(v)
 }
 
+function parseStringArray(v: unknown): string[] {
+  if (Array.isArray(v)) return (v as unknown[]).map(String)
+  if (typeof v === 'string') {
+    const trimmed = v.trim()
+    if (trimmed.startsWith('[')) {
+      try { return (JSON.parse(trimmed) as unknown[]).map(String) } catch { /* fall through */ }
+    }
+    return trimmed ? [trimmed] : []
+  }
+  return []
+}
+
 export function mentorServices(m: RawMentor): { video: boolean; audio: boolean; chat: boolean } {
-  const s = m.services ?? []
+  // Collect all possible service strings from multiple field locations
+  const direct = parseStringArray(m.services)
+  const sessionTypes = parseStringArray(m.sessionTypes)
+  const serviceTypes = parseStringArray(m.serviceTypes)
+
+  // Also extract service types from availability.weekly slots
+  const slots = Array.isArray(m.availability?.weekly)
+    ? (m.availability!.weekly as Record<string, unknown>[])
+    : []
+  const fromSlots = slots.flatMap(slot =>
+    parseStringArray(slot.serviceType ?? slot.type ?? slot.service ?? slot.sessionType ?? '')
+  )
+
+  const all = [...direct, ...sessionTypes, ...serviceTypes, ...fromSlots]
+    .map(s => s.toLowerCase().trim())
+
+  const VIDEO = ['video-call', 'video_call', 'video', 'videocall', 'video call']
+  const AUDIO = ['audio-call', 'audio_call', 'audio', 'audiocall', 'audio call', 'voice-call', 'voice_call']
+  const CHAT  = ['chat', 'personal-chat', 'personal_chat', 'text', 'message']
+
   return {
-    video: s.includes('video-call') || s.includes('video_call') || s.includes('video'),
-    audio: s.includes('audio-call') || s.includes('audio_call') || s.includes('audio'),
-    chat:  s.includes('chat') || s.includes('personal-chat'),
+    video: all.some(s => VIDEO.includes(s)),
+    audio: all.some(s => AUDIO.includes(s)),
+    chat:  all.some(s => CHAT.includes(s)),
   }
 }
 

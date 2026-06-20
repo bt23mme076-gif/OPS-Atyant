@@ -4,7 +4,7 @@ import {
   Users, TrendingUp, Wifi, BadgeCheck, Eye, Gauge, RefreshCw, Search,
   AlertTriangle, ChevronRight, ChevronLeft, Linkedin, CheckCircle2, XCircle, X,
   Video, Phone, MessageCircle, Briefcase, GraduationCap, Star, Clock,
-  Building2, Mail, BookOpen,
+  Building2, Mail,
 } from 'lucide-react'
 import {
   BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area,
@@ -77,13 +77,28 @@ function MentorDrawer({ mentor, onClose }: { mentor: RawMentor; onClose: () => v
   const pct = completionPct(mentor)
   const svc = mentorServices(mentor)
   const expertise = expertiseList(mentor)
-  const skills = (mentor.skills as string[] | undefined) ?? []
+
+  // Skills: MongoDB sometimes stores as JSON string instead of array
+  const skills: string[] = (() => {
+    const raw = mentor.skills
+    if (!raw) return []
+    if (Array.isArray(raw)) return (raw as string[]).filter(Boolean)
+    if (typeof raw === 'string') {
+      const t = raw.trim()
+      if (t.startsWith('[')) {
+        try { return (JSON.parse(t) as string[]).filter(Boolean) } catch { /* fall */ }
+      }
+      return t ? [t] : []
+    }
+    return []
+  })()
+
   const topCompanies = (mentor.topCompanies as string[] | undefined) ?? []
   const milestones = (mentor.milestones as unknown[] | undefined) ?? []
   const education = mentor.education ?? []
   const weeklySlots = Array.isArray(mentor.availability?.weekly)
-    ? mentor.availability!.weekly!.length
-    : null
+    ? (mentor.availability!.weekly as Record<string, unknown>[])
+    : []
   const pctColor = pct >= 75 ? '#16A34A' : pct >= 50 ? '#D97706' : '#DC2626'
 
   return (
@@ -342,14 +357,53 @@ function MentorDrawer({ mentor, onClose }: { mentor: RawMentor; onClose: () => v
           {/* Availability */}
           {mentor.availability != null && (
             <div className="px-5 py-4 border-b border-gray-50">
-              <SectionLabel>Availability</SectionLabel>
-              {weeklySlots !== null && weeklySlots > 0 ? (
-                <p className="text-sm text-gray-600 flex items-center gap-1.5">
-                  <BookOpen size={13} className="text-gray-400" />
-                  {weeklySlots} weekly slot{weeklySlots !== 1 ? 's' : ''} configured
-                </p>
+              <SectionLabel>
+                Availability
+                {weeklySlots.length > 0 && (
+                  <span className="ml-1 normal-case font-normal text-gray-400">
+                    ({weeklySlots.length} slot{weeklySlots.length !== 1 ? 's' : ''})
+                  </span>
+                )}
+              </SectionLabel>
+              {weeklySlots.length > 0 ? (
+                <div className="space-y-1.5">
+                  {weeklySlots.map((slot, i) => {
+                    const day = String(slot.day ?? slot.dayOfWeek ?? slot.weekday ?? '—')
+                    const time = String(slot.time ?? slot.startTime ?? slot.from ?? '')
+                    const endTime = String(slot.endTime ?? slot.to ?? '')
+                    const sType = String(
+                      slot.serviceType ?? slot.type ?? slot.service ?? slot.sessionType ?? ''
+                    ).toLowerCase()
+                    const timeStr = endTime ? `${time} – ${endTime}` : time
+                    return (
+                      <div key={i} className="flex items-center justify-between text-xs bg-gray-50 rounded-lg px-3 py-2">
+                        <span className="text-gray-700 font-medium capitalize">{day}</span>
+                        <div className="flex items-center gap-2">
+                          {timeStr && <span className="text-gray-400">{timeStr}</span>}
+                          {sType && (
+                            <span className={cn(
+                              'flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium',
+                              sType.includes('video')
+                                ? 'bg-purple-50 text-purple-700'
+                                : sType.includes('audio') || sType.includes('voice')
+                                  ? 'bg-blue-50 text-blue-700'
+                                  : sType.includes('chat') || sType.includes('text')
+                                    ? 'bg-green-50 text-green-700'
+                                    : 'bg-gray-100 text-gray-500'
+                            )}>
+                              {sType.includes('video') && <Video size={9} />}
+                              {(sType.includes('audio') || sType.includes('voice')) && <Phone size={9} />}
+                              {(sType.includes('chat') || sType.includes('text')) && <MessageCircle size={9} />}
+                              {sType}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
               ) : (
-                <p className="text-sm text-gray-400 italic">Availability set but no slots visible</p>
+                <p className="text-xs text-gray-400 italic">Availability configured but no weekly slots found</p>
               )}
             </div>
           )}
