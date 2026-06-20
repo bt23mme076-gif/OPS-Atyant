@@ -188,14 +188,14 @@ function MentorDrawer({ mentor, onClose }: { mentor: RawMentor; onClose: () => v
           {/* Services */}
           <div className="px-5 py-4 border-b border-gray-50">
             <SectionLabel>Services Offered</SectionLabel>
-            {/* TEMP DEBUG — remove once services format is confirmed */}
-            <pre className="text-[9px] bg-gray-100 rounded p-1 mb-2 overflow-x-auto max-h-20 text-gray-500">
-              {JSON.stringify({
-                services: mentor.services,
-                sessionTypes: mentor.sessionTypes,
-                serviceTypes: mentor.serviceTypes,
-                availWeekly: mentor.availability?.weekly,
-              }, null, 1)}
+            {/* TEMP DEBUG */}
+            <pre className="text-[9px] bg-gray-100 rounded p-1 mb-2 overflow-x-auto max-h-28 text-gray-500">
+              {JSON.stringify(
+                Object.fromEntries(
+                  Object.entries(mentor).filter(([k]) =>
+                    !['_id','password','accessToken','refreshToken','verificationToken','passwordResetToken','bio','education','milestones','skills','expertise','name','email','phone','linkedinProfile','topCompanies','profilePicture'].includes(k)
+                  )
+                ), null, 1)}
             </pre>
             {svcLabels.length > 0 ? (
               // Show actual service names from the platform
