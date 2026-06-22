@@ -140,7 +140,7 @@ export function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4"
+      className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-2 sm:p-4 overflow-y-auto"
       style={{ background: 'rgba(0,0,0,0.4)' }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose()
@@ -148,8 +148,8 @@ export function Modal({
     >
       <div
         className={cn(
-          'bg-white rounded-xl shadow-xl w-full flex flex-col',
-          'max-h-[90vh]',
+          'bg-white rounded-xl shadow-xl w-full flex flex-col my-4 sm:my-0',
+          'max-h-[calc(100dvh-32px)]',
           widths[size]
         )}
       >
@@ -161,14 +161,14 @@ export function Modal({
 
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
+              className="text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
             >
               <X size={16} />
             </button>
           </div>
         )}
 
-        <div className="p-4 sm:p-5 overflow-y-auto">
+        <div className="p-4 sm:p-5 overflow-y-auto min-h-0">
           {children}
         </div>
       </div>
