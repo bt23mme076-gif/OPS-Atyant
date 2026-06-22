@@ -8,7 +8,7 @@ import {
 import { useGetAtyantStatsQuery } from '@/store/api/mentorDashboardApi'
 import { useGetAtyantSessionStatsQuery } from '@/store/api/atyantSessionsApi'
 import { useGetLinkedinPostsQuery } from '@/store/api/linkedinApi'
-import { useGetTasksQuery } from '@/store/api/tasksApi'
+import { useGetTasksQuery, useGetTasksLeaderboardQuery } from '@/store/api/tasksApi'
 import { useGetUsersQuery } from '@/store/api/usersApi'
 import { Spinner, Avatar, Badge } from '@/components/ui'
 import { useCurrentUser } from '@/store/hooks'
@@ -74,6 +74,7 @@ export default function DashboardPage() {
   const { data: sess, isLoading: l2 } = useGetAtyantSessionStatsQuery()
   const { data: posts = [] } = useGetLinkedinPostsQuery({ status: 'published' })
   const { data: tasks = [] } = useGetTasksQuery()
+  const { data: taskLeaderboard = [] } = useGetTasksLeaderboardQuery()
   const { data: users = [] } = useGetUsersQuery()
 
   // ── Gamification: people leaderboard (points from completed tasks) ──
@@ -177,10 +178,9 @@ const myManagerRankData = useMemo(() => {
   const myRankData = useMemo(() => {
   if (!user?.id) return null
 
-  const rankIndex = allLeaders.findIndex((p) => p.id === user.id)
-  const me = allLeaders.find((p) => p.id === user.id)
+  const me = taskLeaderboard.find((p) => p.id === user.id)
 
-  if (rankIndex === -1 || !me) {
+  if (!me) {
     return {
       rank: null,
       myPoints: 0,
@@ -188,16 +188,15 @@ const myManagerRankData = useMemo(() => {
     }
   }
 
-  const rank = rankIndex + 1
-  const aboveUser = rank > 1 ? allLeaders[rankIndex - 1] : null
+  const aboveUser = me.rank > 1 ? taskLeaderboard[me.rank - 2] : null
   const nextRankGap = aboveUser ? Math.max(aboveUser.points - me.points, 0) : 0
 
   return {
-    rank,
+    rank: me.rank,
     myPoints: me.points,
     nextRankGap,
   }
-}, [allLeaders, user])
+}, [taskLeaderboard, user])
 
 const myTasks = tasks.filter(
   (t: Task) => t.assignedToId === user?.id
