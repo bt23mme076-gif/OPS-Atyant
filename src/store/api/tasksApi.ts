@@ -12,6 +12,13 @@ export const tasksApi = baseApi.injectEndpoints({
       query: () => '/tasks/my',
       providesTags: ['Task'],
     }),
+    getTasksLeaderboard: b.query<
+  { id: string; name: string; squad?: string; points: number; done: number; rank: number }[],
+  void
+>({
+  query: () => '/tasks/leaderboard',
+  providesTags: ['Task'],
+}),
 
     createTask: b.mutation<Task, Partial<Task>>({
       query: (body) => ({ url: '/tasks', method: 'POST', body }),
@@ -53,6 +60,7 @@ export const tasksApi = baseApi.injectEndpoints({
 export const {
   useGetTasksQuery,
   useGetMyTasksQuery,
+  useGetTasksLeaderboardQuery,
   useCreateTaskMutation,
   useUpdateTaskMutation,
   useDeleteTaskMutation,
