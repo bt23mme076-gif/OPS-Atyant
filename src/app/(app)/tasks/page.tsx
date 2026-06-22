@@ -465,10 +465,12 @@ function TaskModal({
   open,
   onClose,
   task,
+  onSubmitWork,
 }: {
   open: boolean
   onClose: () => void
   task?: Task
+  onSubmitWork?: (task: Task) => void
 }) {
   const isEdit = !!task
   const user = useCurrentUser()
@@ -999,14 +1001,13 @@ if (selectedUserIsManager && user?.role !== ROLES.SUPER_ADMIN) {
               </div>
 
               <Button
-                variant="primary"
-                onClick={() => {
-                  onClose()
-                  setTimeout(() => {
-                    window.dispatchEvent(new CustomEvent('open-submit-work', { detail: task }))
-                  }, 0)
-                }}
-              >
+  variant="primary"
+  onClick={() => {
+    if (!task) return
+    onClose()
+    onSubmitWork?.(task)
+  }}
+>
                 <Send size={14} />
                 Submit Work
               </Button>
@@ -1725,7 +1726,14 @@ export default function TasksPage() {
       )}
 
       {addOpen && <TaskModal open onClose={() => setAddOpen(false)} />}
-      {editTask && <TaskModal open onClose={() => setEditTask(undefined)} task={editTask} />}
+      {editTask && (
+  <TaskModal
+    open
+    onClose={() => setEditTask(undefined)}
+    task={editTask}
+    onSubmitWork={(task) => setSubmitTask(task)}
+  />
+)}
       {submitTask && (
         <SubmissionModal
           open

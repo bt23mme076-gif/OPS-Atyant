@@ -77,23 +77,35 @@ export default function DashboardPage() {
   const { data: users = [] } = useGetUsersQuery()
 
   // ── Gamification: people leaderboard (points from completed tasks) ──
-  const leaders = useMemo(() => {
-    const map = new Map<string, { name: string; squad?: string; points: number; done: number }>()
-    tasks.forEach((t: Task) => {
-      if (t.status !== 'DONE') return
-      const id = t.assignedToId || t.assignedTo?.id || t.assignedTo?.name || 'unknown'
-      const cur = map.get(id) ?? { name: t.assignedTo?.name ?? 'Teammate', squad: t.assignedTo?.squad ?? t.squad, points: 0, done: 0 }
-      cur.points += t.points || 0
-      cur.done += 1
-      map.set(id, cur)
-    })
-    return [...map.values()]
-  .sort((a, b) => {
+  const allLeaders = useMemo(() => {
+  const map = new Map<string, { id: string; name: string; squad?: string; points: number; done: number }>()
+
+  tasks.forEach((t: Task) => {
+    if (t.status !== 'DONE') return
+
+    const id = t.assignedToId || t.assignedTo?.id || ''
+    if (!id) return
+
+    const cur = map.get(id) ?? {
+      id,
+      name: t.assignedTo?.name ?? 'Teammate',
+      squad: t.assignedTo?.squad ?? t.squad,
+      points: 0,
+      done: 0,
+    }
+
+    cur.points += t.points || 0
+    cur.done += 1
+    map.set(id, cur)
+  })
+
+  return [...map.values()].sort((a, b) => {
     if (b.points !== a.points) return b.points - a.points
     return a.name.localeCompare(b.name)
   })
-  .slice(0, 6)
-  }, [tasks])
+}, [tasks])
+
+const leaders = useMemo(() => allLeaders.slice(0, 6), [allLeaders])
   const managerLeaders = useMemo(() => {
   const completedBySquad = new Map<string, { points: number; done: number }>()
 
@@ -163,37 +175,29 @@ const myManagerRankData = useMemo(() => {
     return { impressions, reactions }
   }, [posts])
   const myRankData = useMemo(() => {
-  if (!user) return null
+  if (!user?.id) return null
 
-  const allUsers = [...leaders]
+  const rankIndex = allLeaders.findIndex((p) => p.id === user.id)
+  const me = allLeaders.find((p) => p.id === user.id)
 
-  const rank =
-    allUsers.findIndex(
-      (p) => p.name === user.name
-    ) + 1
+  if (rankIndex === -1 || !me) {
+    return {
+      rank: null,
+      myPoints: 0,
+      nextRankGap: 0,
+    }
+  }
 
-  const me = allUsers.find(
-    (p) => p.name === user.name
-  )
-
-  const myPoints = me?.points || 0
-
-  const aboveUser =
-    rank > 1
-      ? allUsers[rank - 2]
-      : null
-
-  const nextRankGap =
-    aboveUser
-      ? aboveUser.points - myPoints
-      : 0
+  const rank = rankIndex + 1
+  const aboveUser = rank > 1 ? allLeaders[rankIndex - 1] : null
+  const nextRankGap = aboveUser ? Math.max(aboveUser.points - me.points, 0) : 0
 
   return {
     rank,
-    myPoints,
+    myPoints: me.points,
     nextRankGap,
   }
-}, [leaders, user])
+}, [allLeaders, user])
 
 const myTasks = tasks.filter(
   (t: Task) => t.assignedToId === user?.id
