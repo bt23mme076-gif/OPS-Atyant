@@ -80,33 +80,269 @@ export function Badge({
   )
 }
 
-// Avatar
-export function Avatar({
-  name,
-  size = 32,
-  bg = '#2563EB',
-}: {
+// ─── Avatar ───────────────────────────────────────────────────────────────────
+
+type AvatarStatus = 'online' | 'offline' | 'away' | 'busy'
+
+interface AvatarProps {
   name: string
+  image?: string
   size?: number
   bg?: string
-}) {
+  /** Show a coloured status dot */
+  status?: AvatarStatus
+  /** Renders a thin ring around the avatar */
+  ring?: boolean
+  /** Colour of the ring (tailwind border colour or hex) */
+  ringColor?: string
+  /** Extra class names on the wrapper */
+  className?: string
+  /** Called when the avatar is clicked */
+  onClick?: () => void
+}
+
+const STATUS_COLOR: Record<AvatarStatus, string> = {
+  online:  '#22C55E',
+  away:    '#F59E0B',
+  busy:    '#EF4444',
+  offline: '#9CA3AF',
+}
+
+export function Avatar({
+  name,
+  image,
+  size = 32,
+  bg = '#2563EB',
+  status,
+  ring = false,
+  ringColor = '#2563EB',
+  className,
+  onClick,
+}: AvatarProps) {
+  // Dot is 25 % of avatar size, clamped between 8 – 14 px
+  const dotSize   = Math.min(14, Math.max(8, Math.round(size * 0.25)))
+  const fontSize  = Math.floor(size * 0.38)
+  const isClickable = typeof onClick === 'function'
+
+  const [imgError, setImgError] = React.useState(false)
+  const showImage = image && !imgError
+
+  /* ── wrapper ── */
+  const wrapperStyle: React.CSSProperties = {
+    position:   'relative',
+    display:    'inline-flex',
+    flexShrink: 0,
+    width:      size,
+    height:     size,
+    cursor:     isClickable ? 'pointer' : 'default',
+  }
+
+  /* ── inner circle shared styles ── */
+  const circleBase: React.CSSProperties = {
+    width:        '100%',
+    height:       '100%',
+    borderRadius: '50%',
+    overflow:     'hidden',
+    // ring via box-shadow so it never shifts layout
+    boxShadow: ring
+      ? `0 0 0 2px white, 0 0 0 4px ${ringColor}`
+      : '0 1px 3px rgba(0,0,0,0.12)',
+    transition: 'box-shadow 0.2s, transform 0.15s',
+  }
+
+  /* ── status dot ── */
+  const dot = status ? (
+    <span
+      aria-label={status}
+      style={{
+        position:     'absolute',
+        bottom:       ring ? 1 : 0,
+        right:        ring ? 1 : 0,
+        width:        dotSize,
+        height:       dotSize,
+        borderRadius: '50%',
+        background:   STATUS_COLOR[status],
+        border:       '2px solid white',
+        // subtle pulse only when online
+        animation:    status === 'online' ? 'avatarPulse 2s ease-in-out infinite' : undefined,
+      }}
+    />
+  ) : null
+
+  /* ── image variant ── */
+  if (showImage) {
+    return (
+      <>
+        <style>{`
+          @keyframes avatarPulse {
+            0%, 100% { box-shadow: 0 0 0 0 ${STATUS_COLOR.online}66; }
+            50%       { box-shadow: 0 0 0 4px ${STATUS_COLOR.online}00; }
+          }
+        `}</style>
+
+        <div
+          style={wrapperStyle}
+          className={cn(
+            'group select-none',
+            isClickable && 'hover:[&>div]:scale-105 active:[&>div]:scale-95',
+            className
+          )}
+          onClick={onClick}
+          role={isClickable ? 'button' : undefined}
+          tabIndex={isClickable ? 0 : undefined}
+          onKeyDown={isClickable
+            ? (e) => e.key === 'Enter' && onClick?.()
+            : undefined}
+        >
+          <div style={circleBase}>
+            <img
+              src={image}
+              alt={name}
+              onError={() => setImgError(true)}
+              style={{
+                width:      '100%',
+                height:     '100%',
+                objectFit:  'cover',
+                display:    'block',
+              }}
+            />
+          </div>
+          {dot}
+        </div>
+      </>
+    )
+  }
+
+  /* ── initials / fallback variant ── */
+  // Generate a consistent colour from the name when no bg is passed
+  const autoBg = bg === '#2563EB' ? stringToColor(name) : bg
+
+  return (
+    <>
+      <style>{`
+        @keyframes avatarPulse {
+          0%, 100% { box-shadow: 0 0 0 0 ${STATUS_COLOR.online}66; }
+          50%       { box-shadow: 0 0 0 4px ${STATUS_COLOR.online}00; }
+        }
+      `}</style>
+
+      <div
+        style={wrapperStyle}
+        className={cn(
+          'group select-none',
+          isClickable && 'hover:[&>div]:scale-105 active:[&>div]:scale-95',
+          className
+        )}
+        onClick={onClick}
+        role={isClickable ? 'button' : undefined}
+        tabIndex={isClickable ? 0 : undefined}
+        onKeyDown={isClickable
+          ? (e) => e.key === 'Enter' && onClick?.()
+          : undefined}
+      >
+        <div
+          style={{
+            ...circleBase,
+            background:     autoBg,
+            color:          'white',
+            display:        'flex',
+            alignItems:     'center',
+            justifyContent: 'center',
+            fontSize:        fontSize,
+            fontWeight:      600,
+            letterSpacing:  '0.02em',
+            userSelect:     'none',
+          }}
+        >
+          {getInitials(name)}
+        </div>
+        {dot}
+      </div>
+    </>
+  )
+}
+
+/**
+ * Deterministically maps a string → a pleasant dark-ish hex colour.
+ * Used so every person always gets the same avatar background.
+ */
+function stringToColor(str: string): string {
+  const PALETTE = [
+    '#2563EB', '#7C3AED', '#DB2777', '#DC2626',
+    '#D97706', '#059669', '#0891B2', '#4F46E5',
+  ]
+  let hash = 0
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash)
+  }
+  return PALETTE[Math.abs(hash) % PALETTE.length]
+}
+
+// ─── Avatar Group ─────────────────────────────────────────────────────────────
+
+interface AvatarGroupProps {
+  /** Each item can be anything Avatar accepts */
+  avatars: Array<Pick<AvatarProps, 'name' | 'image' | 'bg'>>
+  /** How many to show before "+N" overflow bubble */
+  max?: number
+  size?: number
+  /** Negative margin overlap in px (default 8) */
+  overlap?: number
+  className?: string
+}
+
+export function AvatarGroup({
+  avatars,
+  max = 4,
+  size = 32,
+  overlap = 8,
+  className,
+}: AvatarGroupProps) {
+  const visible  = avatars.slice(0, max)
+  const overflow = avatars.length - max
+  const fontSize = Math.floor(size * 0.32)
+
   return (
     <div
-      style={{
-        width: size,
-        height: size,
-        borderRadius: '50%',
-        background: bg,
-        color: 'white',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: Math.floor(size * 0.35),
-        fontWeight: 600,
-        flexShrink: 0,
-      }}
+      className={cn('flex items-center', className)}
+      style={{ paddingLeft: overlap }}
     >
-      {getInitials(name)}
+      {visible.map((a, i) => (
+        <div
+          key={i}
+          style={{
+            marginLeft:  i === 0 ? 0 : -overlap,
+            zIndex:      visible.length - i,
+            borderRadius: '50%',
+            boxShadow:   '0 0 0 2px white',
+          }}
+        >
+          <Avatar name={a.name} image={a.image} bg={a.bg} size={size} />
+        </div>
+      ))}
+
+      {overflow > 0 && (
+        <div
+          style={{
+            marginLeft:     -overlap,
+            zIndex:         0,
+            width:          size,
+            height:         size,
+            borderRadius:   '50%',
+            background:     '#E5E7EB',
+            color:          '#4B5563',
+            display:        'flex',
+            alignItems:     'center',
+            justifyContent: 'center',
+            fontSize:       fontSize,
+            fontWeight:     600,
+            boxShadow:      '0 0 0 2px white',
+            flexShrink:     0,
+          }}
+        >
+          +{overflow}
+        </div>
+      )}
     </div>
   )
 }
@@ -158,7 +394,6 @@ export function Modal({
             <h2 className="font-semibold text-gray-900 text-sm sm:text-base">
               {title}
             </h2>
-
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
@@ -167,10 +402,7 @@ export function Modal({
             </button>
           </div>
         )}
-
-        <div className="p-4 sm:p-5 overflow-y-auto min-h-0">
-          {children}
-        </div>
+        <div className="p-4 sm:p-5 overflow-y-auto min-h-0">{children}</div>
       </div>
     </div>
   )
@@ -198,7 +430,13 @@ export function Empty({
 }
 
 // WhatsApp Icon
-export function WhatsAppIcon({ size = 16, className }: { size?: number; className?: string }) {
+export function WhatsAppIcon({
+  size = 16,
+  className,
+}: {
+  size?: number
+  className?: string
+}) {
   return (
     <svg
       className={className}
@@ -212,7 +450,7 @@ export function WhatsAppIcon({ size = 16, className }: { size?: number; classNam
   )
 }
 
-// Reusable Circular Social Icon Button with Tooltip
+// Social Icon Button
 export function SocialIconButton({
   icon,
   href,
@@ -225,10 +463,12 @@ export function SocialIconButton({
   colorClass: string
 }) {
   const content = (
-    <span className={cn(
-      "flex h-7 w-7 items-center justify-center rounded-full border bg-white shadow-sm transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer",
-      colorClass
-    )}>
+    <span
+      className={cn(
+        'flex h-7 w-7 items-center justify-center rounded-full border bg-white shadow-sm transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer',
+        colorClass
+      )}
+    >
       {icon}
     </span>
   )
@@ -242,8 +482,6 @@ export function SocialIconButton({
       ) : (
         content
       )}
-      
-      {/* Tooltip */}
       <div className="absolute bottom-full left-1/2 z-20 mb-2 w-max -translate-x-1/2 scale-75 rounded bg-gray-900 px-2 py-1 text-[10px] font-medium text-white opacity-0 pointer-events-none transition-all duration-200 ease-out origin-bottom group-hover:scale-100 group-hover:opacity-100 shadow-md">
         {tooltip}
         <div className="absolute top-full left-1/2 -translate-x-1/2 border-[4px] border-transparent border-t-gray-900" />
