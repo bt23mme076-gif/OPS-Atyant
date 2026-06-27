@@ -1,6 +1,6 @@
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
-import { differenceInCalendarDays, format, formatDistanceToNow, isPast, isToday, isTomorrow } from 'date-fns'
+import { differenceInCalendarDays, differenceInMinutes, format, formatDistanceToNow, isPast, isToday, isTomorrow } from 'date-fns'
 
 export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(inputs))
@@ -21,13 +21,55 @@ export function formatRelative(date: string | Date): string {
   return formatDistanceToNow(d, { addSuffix: true })
 }
 
-export function formatDue(date: string | Date): {
+export function formatDue(
+  date: string | Date,
+  status?: string,
+  submittedAt?: string | Date
+): {
   label: string
   isOverdue: boolean
   health: 'onTrack' | 'atRisk' | 'delayed'
   healthLabel: string
 } {
   const d = new Date(date)
+  const normalizedStatus = status?.toLowerCase()
+
+  if (normalizedStatus === 'done' || normalizedStatus === 'completed') {
+    if (submittedAt) {
+  const submittedDate = new Date(submittedAt)
+
+  if (submittedDate > d) {
+  const delayedMinutes = differenceInMinutes(submittedDate, d)
+  const delayedDays = differenceInCalendarDays(submittedDate, d)
+
+  let delayLabel = ''
+
+  if (delayedMinutes < 60) {
+    delayLabel = `${delayedMinutes} min${delayedMinutes > 1 ? 's' : ''} late`
+  } else if (delayedMinutes < 1440) {
+    const hours = Math.floor(delayedMinutes / 60)
+    delayLabel = `${hours} hr${hours > 1 ? 's' : ''} late`
+  } else {
+    delayLabel = `${Math.max(delayedDays, 1)} day${Math.max(delayedDays, 1) > 1 ? 's' : ''} late`
+  }
+
+  return {
+    label: `Completed · ${delayLabel}`,
+    isOverdue: false,
+    health: 'delayed',
+    healthLabel: 'Completed Late',
+  }
+}
+}
+
+    return {
+      label: 'Completed',
+      isOverdue: false,
+      health: 'onTrack',
+      healthLabel: 'Completed',
+    }
+  }
+
   const isOverdue = isPast(d)
   const daysLeft = differenceInCalendarDays(d, new Date())
 

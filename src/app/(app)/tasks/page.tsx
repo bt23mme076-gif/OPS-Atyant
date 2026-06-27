@@ -62,10 +62,15 @@ function isNewTask(task: Task) {
 }
 
 function getDueBadge(task: Task) {
+  
   const dueDate = (task as any)?.dueDate
   if (!dueDate) return null
 
-  const due = formatDue(dueDate)
+  const due = formatDue(
+  task.dueDate,
+  task.status,
+  (task as any)?.submittedAt ?? (task as any)?.reviewedAt ?? (task as any)?.updatedAt
+)
 
   return {
     label: due.label,
@@ -1300,8 +1305,14 @@ export default function TasksPage() {
   }, [tasks, search, priorityFilter, squadFilter, statusFilter])
 
   async function moveTask(id: string, status: TaskStatus) {
-    try {
-      await updateTask({ id, data: { status } }).unwrap()
+  try {
+    const data: any = { status }
+
+    if (status === 'DONE') {
+      data.reviewedAt = new Date().toISOString()
+    }
+
+    await updateTask({ id, data }).unwrap()
       toast.success(`Task moved to ${TASK_STATUSES.find(s => s.key === status)?.label ?? status}`)
       refetch()
     } catch (error: any) {
