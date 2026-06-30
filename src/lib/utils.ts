@@ -16,8 +16,26 @@ export function formatDateTime(date: string | Date): string {
 
 export function formatRelative(date: string | Date): string {
   const d = new Date(date)
-  if (isToday(d)) return `Today at ${format(d, 'h:mm a')}`
-  if (isTomorrow(d)) return `Tomorrow at ${format(d, 'h:mm a')}`
+
+  // Use en-CA locale for date comparison: it returns "YYYY-MM-DD" in IST, easy to compare as strings.
+  const getISTDate = (dt: Date): string =>
+    new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(dt)
+
+  const todayIST    = getISTDate(new Date())
+  const tomorrowIST = getISTDate(new Date(Date.now() + 24 * 60 * 60 * 1000))
+  const dIST        = getISTDate(d)
+
+  // Use en-US locale for time display: always outputs reliable "h:mm AM/PM" format.
+  // en-IN has inconsistent browser Intl data (Chrome vs Node) causing wrong times.
+  const timeIST = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Kolkata',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  }).format(d)
+
+  if (dIST === todayIST)     return `Today at ${timeIST}`
+  if (dIST === tomorrowIST)  return `Tomorrow at ${timeIST}`
   return formatDistanceToNow(d, { addSuffix: true })
 }
 

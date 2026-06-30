@@ -30,7 +30,7 @@ export const baseQueryWithAuthGuard: BaseQueryFn<string | FetchArgs, unknown, Fe
 export const baseApi = createApi({
   reducerPath: 'api',
   baseQuery: baseQueryWithAuthGuard,
-  tagTypes: ['Auth', 'Mentor', 'Student', 'Session', 'Task', 'User', 'Dashboard', 'Notification', 'LinkedinPost', 'LinkedinLead', 'LinkedinStats'],
+  tagTypes: ['Auth', 'Mentor', 'Student', 'Session', 'Task', 'User', 'Dashboard', 'Notification', 'LinkedinPost', 'LinkedinLead', 'LinkedinStats', 'UploadedPost'],
   keepUnusedDataFor: 60,
   endpoints: () => ({}),
 })

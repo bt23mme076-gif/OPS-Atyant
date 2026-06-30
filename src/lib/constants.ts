@@ -1,6 +1,5 @@
 export const TOKEN_COOKIE = 'atyant_token'
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://opsapi.atyant.in/api'
-
 export const ROLES = {
   SUPER_ADMIN: 'SUPER_ADMIN',
   MANAGER: 'MANAGER',

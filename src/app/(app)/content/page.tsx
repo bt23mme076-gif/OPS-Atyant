@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import { SocialIconButton, WhatsAppIcon, Modal } from "@/components/ui"
 import { Linkedin, Github, FileText, User, Send, MessageSquare, ThumbsUp, Globe, Plus, Calendar, Clock } from "lucide-react"
 import { getInitials } from "@/lib/utils"
+import { useGetUploadedPostsQuery, useCreateUploadedPostMutation, useDeleteUploadedPostMutation } from "@/store/api/contentApi"
 
 type ContentStatus = "Idea" | "Draft" | "In Review" | "Approved" | "Published"
 
@@ -467,6 +468,16 @@ function AddContentActivityForm({ onAdd }: { onAdd: (type: ActivityType, content
 }
 
 export default function ContentPage() {
+  const currentUser = { name: "Content Team" }
+  const { data: uploadedPosts = [] } = useGetUploadedPostsQuery()
+  const [createUploadedPost, { isLoading: isUploading }] = useCreateUploadedPostMutation()
+  const [deleteUploadedPost] = useDeleteUploadedPostMutation()
+  const [showUploadedModal, setShowUploadedModal] = useState(false)
+  const [uploadedForm, setUploadedForm] = useState({
+    platform: "Instagram" as "Instagram" | "LinkedIn",
+    postUrl: ""
+  })
+
   const [contentItems, setContentItems] = useState<ContentItem[]>(initialContent)
   const [selectedItem, setSelectedItem] = useState<ContentItem | null>(null)
   const [search, setSearch] = useState("")
@@ -611,12 +622,20 @@ export default function ContentPage() {
           </p>
         </div>
 
-        <button
-          onClick={() => setShowForm(true)}
-          className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-        >
-          Add Content
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowUploadedModal(true)}
+            className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 shadow-sm transition-colors"
+          >
+            Add Uploaded Post
+          </button>
+          <button
+            onClick={() => setShowForm(true)}
+            className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 shadow-sm transition-colors"
+          >
+            Add Content
+          </button>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-5">
@@ -919,6 +938,170 @@ export default function ContentPage() {
           </div>
         )}
       </div>
+
+      {/* Uploaded Posts Section */}
+      <div className="overflow-hidden rounded-2xl border bg-white shadow-sm mt-6">
+        <div className="border-b p-5">
+          <h2 className="text-lg font-semibold text-gray-900">
+            Uploaded Posts
+          </h2>
+          <p className="mt-1 text-sm text-gray-500">
+            Instagram and LinkedIn post URLs added by the content team.
+          </p>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[1000px] text-left text-sm">
+            <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+              <tr>
+                <th className="px-5 py-3">Platform</th>
+                <th className="px-5 py-3">Post URL</th>
+                <th className="px-5 py-3">Uploaded By</th>
+                <th className="px-5 py-3">Created At</th>
+                <th className="px-5 py-3">Action</th>
+              </tr>
+            </thead>
+
+            <tbody className="divide-y">
+              {uploadedPosts.map((post) => (
+                <tr key={post.id} className="hover:bg-gray-50">
+                  <td className="px-5 py-4 font-medium text-gray-900">
+                    {post.platform === "LinkedIn" ? (
+                      <span className="inline-flex items-center gap-1.5 text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-md text-xs font-semibold">
+                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-600" />
+                        LinkedIn
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 text-pink-600 bg-pink-50 px-2.5 py-1 rounded-md text-xs font-semibold">
+                        <span className="w-1.5 h-1.5 rounded-full bg-pink-600" />
+                        Instagram
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-5 py-4 text-blue-600 font-medium">
+                    <a
+                      href={post.postUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:underline break-all"
+                    >
+                      {post.postUrl}
+                    </a>
+                  </td>
+                  <td className="px-5 py-4 text-gray-600">{post.uploadedBy}</td>
+                  <td className="px-5 py-4 text-gray-500">
+                    {new Date(post.createdAt).toLocaleDateString("en-GB", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit"
+                    })}
+                  </td>
+                  <td className="px-5 py-4">
+                    <button
+                      onClick={async () => {
+                        if (window.confirm("Are you sure you want to delete this uploaded post?")) {
+                          try {
+                            await deleteUploadedPost(post.id).unwrap()
+                          } catch (err) {
+                            console.error("Failed to delete post:", err)
+                          }
+                        }
+                      }}
+                      className="rounded-lg bg-red-50 px-3 py-1 text-xs font-semibold text-red-600 hover:bg-red-100"
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {uploadedPosts.length === 0 && (
+          <div className="p-8 text-center text-sm text-gray-500">
+            No uploaded posts added yet.
+          </div>
+        )}
+      </div>
+
+      {/* Add Uploaded Post Modal */}
+      <Modal
+        open={showUploadedModal}
+        onClose={() => setShowUploadedModal(false)}
+        title={
+          <span className="text-lg font-bold text-gray-900">
+            Add Uploaded Post
+          </span>
+        }
+        size="md"
+      >
+        <div className="space-y-4 pt-2">
+          <div className="flex flex-col">
+            <label className="text-xs font-semibold text-gray-700 mb-1">
+              Platform
+            </label>
+            <select
+              value={uploadedForm.platform}
+              onChange={(e) =>
+                setUploadedForm({
+                  ...uploadedForm,
+                  platform: e.target.value as "Instagram" | "LinkedIn"
+                })
+              }
+              className="rounded-xl border px-4 py-2 text-sm outline-none focus:border-blue-500 bg-white"
+            >
+              <option value="Instagram">Instagram</option>
+              <option value="LinkedIn">LinkedIn</option>
+            </select>
+          </div>
+
+          <div className="flex flex-col">
+            <label className="text-xs font-semibold text-gray-700 mb-1">
+              Post URL
+            </label>
+            <input
+              value={uploadedForm.postUrl}
+              onChange={(e) =>
+                setUploadedForm({ ...uploadedForm, postUrl: e.target.value })
+              }
+              placeholder="https://..."
+              className="rounded-xl border px-4 py-2 text-sm outline-none focus:border-blue-500"
+              required
+            />
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button
+              onClick={async () => {
+                if (!uploadedForm.postUrl.trim()) return
+                try {
+                  await createUploadedPost({
+                    platform: uploadedForm.platform,
+                    postUrl: uploadedForm.postUrl,
+                  }).unwrap()
+                  setUploadedForm({ platform: "Instagram", postUrl: "" })
+                  setShowUploadedModal(false)
+                } catch (err) {
+                  console.error("Failed to save post:", err)
+                }
+              }}
+              disabled={isUploading}
+              className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 shadow-sm transition-colors disabled:opacity-50"
+            >
+              {isUploading ? "Saving..." : "Save Post"}
+            </button>
+            <button
+              onClick={() => setShowUploadedModal(false)}
+              className="rounded-xl border px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 shadow-sm transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Activity Timeline Modal */}
       {selectedItem && (

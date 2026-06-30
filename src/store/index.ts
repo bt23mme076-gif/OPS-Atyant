@@ -11,6 +11,7 @@ import './api/tasksApi'
 import './api/usersApi'
 import './api/dashboardApi'
 import './api/linkedinApi'
+import './api/contentApi'
 
 export const store = configureStore({
   reducer: {

@@ -203,9 +203,24 @@ export default function NotificationsPage() {
                       )}
                     </div>
 
-                    <p className="text-xs text-gray-500 mt-1 leading-relaxed">
-                      {n.message}
-                    </p>
+                    {/* Render message: if there is a postUrl in metadata, make the URL clickable */}
+                    {n.metadata?.postUrl ? (
+                      <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                        {n.message.replace(n.metadata.postUrl, '').trim()}{' '}
+                        <a
+                          href={n.metadata.postUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline break-all"
+                        >
+                          {n.metadata.postUrl}
+                        </a>
+                      </p>
+                    ) : (
+                      <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                        {n.message}
+                      </p>
+                    )}
 
                     <p className="text-[10px] text-gray-400 mt-2">
                       {formatRelative(n.createdAt)}

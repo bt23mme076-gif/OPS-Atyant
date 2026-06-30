@@ -306,8 +306,16 @@ export interface Notification {
   id: string
   title: string
   message: string
+  body?: string     // alias for message (backend compatibility)
   type: string
   isRead: boolean
+  metadata?: {
+    postUrl?: string
+    uploadedPostId?: string
+    platform?: string
+    uploadedBy?: string
+    [key: string]: unknown
+  } | null
   createdAt: string
 }
 
