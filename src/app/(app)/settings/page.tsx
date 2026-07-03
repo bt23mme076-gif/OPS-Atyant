@@ -241,8 +241,8 @@ export default function SettingsPage() {
           <p className="text-sm text-gray-400">Loading...</p>
         )}
 
-        {/* ── Contact & Integration (INTERNs only) ── */}
-        {user?.role === 'INTERN' && (
+        {/* ── Contact & Integration (INTERNs + MANAGERs) ── */}
+        {(user?.role === 'INTERN' || user?.role === 'MANAGER') && (
           <div className="border-t border-gray-100 pt-5 mt-5 space-y-5">
             <h3 className="text-sm font-semibold text-gray-900">Contact & Integration</h3>
 
