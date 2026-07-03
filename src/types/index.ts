@@ -25,6 +25,7 @@ export interface AuthUser {
   lorEligible: boolean
   managerId?: string | null
   avatarUrl?: string | null
+  profileImage?: string | null
   repoLink?: string | null
   whatsappNumber?: string | null   // ← NEW
   linkedinUrl?: string | null      // ← NEW

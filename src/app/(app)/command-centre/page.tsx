@@ -540,7 +540,7 @@ export default function CommandCentrePage() {
                             </span>
                             <div className="flex items-center gap-1.5">
                               <a
-                                href={u.repoLink}
+                                href={`https://github.com/${u.repoLink}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-blue-600 font-semibold hover:underline"
