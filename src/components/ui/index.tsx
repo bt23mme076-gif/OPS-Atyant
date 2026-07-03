@@ -83,12 +83,18 @@ export function Badge({
 // Avatar
 export function Avatar({
   name,
+  image,
   size = 32,
   bg = '#2563EB',
+  ring = false,
+  ringColor = '#2563EB',
 }: {
   name: string
+  image?: string
   size?: number
   bg?: string
+  ring?: boolean
+  ringColor?: string
 }) {
   return (
     <div
@@ -104,9 +110,20 @@ export function Avatar({
         fontSize: Math.floor(size * 0.35),
         fontWeight: 600,
         flexShrink: 0,
+        overflow: 'hidden',
+        boxShadow: ring ? `0 0 0 2px white, 0 0 0 4px ${ringColor}` : undefined,
       }}
     >
-      {getInitials(name)}
+      {image ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={image}
+          alt={name}
+          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+        />
+      ) : (
+        getInitials(name)
+      )}
     </div>
   )
 }
