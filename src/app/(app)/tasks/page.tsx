@@ -294,9 +294,8 @@ function getSubmission(task?: Task) {
   if (!task) {
     return {
       prLink: '',
-      docLink: '',
+      prLink2: '',
       summary: '',
-      blockers: '',
       feedback: '',
       submittedAt: '',
     }
@@ -304,9 +303,8 @@ function getSubmission(task?: Task) {
 
   return {
     prLink: (task as any)?.submissionPrLink ?? (task as any)?.proofLink ?? '',
-    docLink: (task as any)?.submissionDocLink ?? '',
+    prLink2: (task as any)?.submissionPrLink2 ?? '',
     summary: (task as any)?.submissionSummary ?? '',
-    blockers: (task as any)?.submissionBlockers ?? '',
     feedback: (task as any)?.reviewFeedback ?? (task as any)?.feedback ?? '',
     submittedAt: (task as any)?.submittedAt ?? '',
   }
@@ -314,7 +312,7 @@ function getSubmission(task?: Task) {
 
 function hasSubmission(task?: Task) {
   const submission = getSubmission(task)
-  return !!(submission.prLink || submission.docLink || submission.summary || submission.blockers)
+  return !!(submission.prLink || submission.prLink2 || submission.summary)
 }
 
 async function copyText(value: string, label = 'Copied') {
@@ -328,6 +326,34 @@ async function copyText(value: string, label = 'Copied') {
     toast.success(label)
   } catch {
     toast.error('Failed to copy')
+  }
+}
+function getReviewMeta(task?: Task) {
+  const reviewStatus = (task as any)?.reviewStatus
+  const isApproved = reviewStatus === 'APPROVED' || task?.status === 'DONE'
+
+  if (isApproved) {
+    return {
+      label: 'Approved',
+      emoji: '🟢',
+      card: 'border-green-100 bg-green-50/60',
+      text: 'text-green-700',
+      subText: 'text-green-600',
+      badge: 'bg-green-600 text-white',
+      badgeSoft: 'bg-green-50 text-green-700 border-green-200',
+      ring: 'ring-green-100',
+    }
+  }
+
+  return {
+    label: 'PR Submitted',
+    emoji: '🟡',
+    card: 'border-yellow-100 bg-yellow-50/60',
+    text: 'text-yellow-700',
+    subText: 'text-yellow-600',
+    badge: 'bg-yellow-500 text-white',
+    badgeSoft: 'bg-yellow-50 text-yellow-700 border-yellow-200',
+    ring: 'ring-yellow-100',
   }
 }
 
@@ -347,9 +373,8 @@ function SubmissionModal({
 
   const [form, setForm] = useState({
     prLink: submission.prLink,
-    docLink: submission.docLink,
+    prLink2: submission.prLink2,
     summary: submission.summary,
-    blockers: submission.blockers,
   })
 
   const f = (k: string) => (e: ChangeEvent<any>) =>
@@ -357,7 +382,7 @@ function SubmissionModal({
 
   async function submitWork() {
     if (!form.prLink.trim()) {
-      toast.error('PR link is required')
+      toast.error('PR Link 1 is required')
       return
     }
 
@@ -370,55 +395,54 @@ function SubmissionModal({
       status: 'REVIEW',
       proofLink: form.prLink.trim(),
       submissionPrLink: form.prLink.trim(),
-      submissionDocLink: form.docLink.trim(),
+      submissionPrLink2: form.prLink2.trim(),
       submissionSummary: form.summary.trim(),
-      submissionBlockers: form.blockers.trim(),
       submittedAt: new Date().toISOString(),
-      reviewStatus: 'SUBMITTED_FOR_REVIEW',
+      reviewStatus: 'PR_SUBMITTED',
     }
 
     try {
       await update({ id: task.id, data: payload }).unwrap()
-      toast.success('Work submitted for review')
+      toast.success('PR request submitted')
       onSubmitted()
       onClose()
     } catch (error: any) {
-      toast.error(error?.data?.message || 'Failed to submit work')
+      toast.error(error?.data?.message || 'Failed to submit PR request')
     }
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Submit Work" size="lg">
+    <Modal open={open} onClose={onClose} title="Send PR Request" size="lg">
       <div className="space-y-4">
         <div className="rounded-xl border border-blue-100 bg-blue-50/60 px-4 py-3">
           <p className="text-sm font-bold text-blue-700">{task.title}</p>
           <p className="text-xs text-blue-600 mt-1">
-            Submit your PR link and short work summary. The task will move to Submitted for Review.
+            Submit your GitHub PR links and short summary to send this task for review.
           </p>
         </div>
 
         <div>
           <label className="label block mb-1.5 text-xs font-semibold uppercase tracking-wider text-gray-500">
-            PR Link *
+            GitHub PR Link 1 *
           </label>
           <input
             className="input"
             value={form.prLink}
             onChange={f('prLink')}
-            placeholder="Paste GitHub PR link"
+            placeholder="Paste first GitHub PR link"
             autoFocus
           />
         </div>
 
         <div>
           <label className="label block mb-1.5 text-xs font-semibold uppercase tracking-wider text-gray-500">
-            Document / Demo Link
+            GitHub PR Link 2
           </label>
           <input
             className="input"
-            value={form.docLink}
-            onChange={f('docLink')}
-            placeholder="Optional document, demo, or reference link"
+            value={form.prLink2}
+            onChange={f('prLink2')}
+            placeholder="Optional second GitHub PR link"
           />
         </div>
 
@@ -435,26 +459,14 @@ function SubmissionModal({
           />
         </div>
 
-        <div>
-          <label className="label block mb-1.5 text-xs font-semibold uppercase tracking-wider text-gray-500">
-            Doubts / Blockers
-          </label>
-          <textarea
-            className="input resize-none"
-            rows={2}
-            value={form.blockers}
-            onChange={f('blockers')}
-            placeholder="Optional blockers or doubts"
-          />
-        </div>
-
         <div className="flex justify-end gap-2 pt-4 border-t border-gray-100">
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
+
           <Button variant="primary" loading={isLoading} onClick={submitWork}>
             <Send size={14} />
-            Submit for Review
+            Send PR Request
           </Button>
         </div>
       </div>
@@ -491,9 +503,24 @@ function TaskModal({
   })
 
   const submission = getSubmission(task)
-  const canReview = user?.role === ROLES.MANAGER || user?.role === ROLES.SUPER_ADMIN
-  const isAssignedIntern = user?.role === ROLES.INTERN && user?.id === getTaskAssigneeId(task as Task)
-  const canSubmitWork = isEdit && isAssignedIntern && task?.status !== 'DONE'
+  const reviewMeta = getReviewMeta(task)
+const canReview = user?.role === ROLES.MANAGER || user?.role === ROLES.SUPER_ADMIN
+const isTechTask = getSquadKey(task?.squad) === 'TECH'
+
+const canSendPR =
+  isEdit &&
+  isTechTask &&
+  (
+    (
+      user?.role === ROLES.INTERN &&
+      user?.id === getTaskAssigneeId(task as Task)
+    ) ||
+    (
+      user?.role === ROLES.MANAGER &&
+      getSquadKey(user?.squad) === 'TECH'
+    )
+  ) &&
+  task?.status !== 'DONE'
 
   const f = (k: string) => (e: ChangeEvent<any>) =>
     setForm(p => ({ ...p, [k]: e.target.value }))
@@ -868,28 +895,29 @@ if (selectedUserIsManager && user?.role !== ROLES.SUPER_ADMIN) {
               </p>
               <p className="mt-1 text-gray-500 leading-relaxed">{followUpMessage}</p>
             </div>
-          </div>
+                      </div>
         )}
+          
 
         {isEdit && hasSubmission(task) && (
           <div className="pt-4 border-t border-gray-100 space-y-4">
             <div className="rounded-xl border border-purple-100 bg-purple-50/50 p-4">
               <div className="flex items-center justify-between gap-3 mb-3">
                 <div>
-                  <p className="text-xs font-bold text-purple-700 uppercase tracking-wider flex items-center gap-2">
-                    <ClipboardCheck size={14} />
-                    Submitted for Review
-                  </p>
-                  <p className="text-xs text-purple-600 mt-1">
+                  <p className={cn('text-xs font-bold uppercase tracking-wider flex items-center gap-2', reviewMeta.text)}>
+  <ClipboardCheck size={14} />
+  {reviewMeta.emoji} {reviewMeta.label}
+</p>
+<p className={cn('text-xs mt-1', reviewMeta.subText)}>
                     {submission.submittedAt
                       ? `Submitted on ${new Date(submission.submittedAt).toLocaleString()}`
                       : 'Intern has submitted work for this task'}
                   </p>
                 </div>
 
-                <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-purple-600 text-white">
-                  REVIEW
-                </span>
+                <span className={cn('text-[10px] font-bold px-2 py-1 rounded-full', reviewMeta.badge)}>
+  {reviewMeta.label.toUpperCase()}
+</span>
               </div>
 
               {submission.prLink && (
@@ -915,30 +943,35 @@ if (selectedUserIsManager && user?.role !== ROLES.SUPER_ADMIN) {
                   </div>
                 </div>
               )}
+{submission.prLink2 && (
+  <div className="rounded-lg bg-white border border-purple-100 p-3 mb-3">
+    <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">
+      PR Link 2
+    </p>
 
-              {submission.docLink && (
-                <div className="rounded-lg bg-white border border-purple-100 p-3 mb-3">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Document / Demo Link</p>
-                  <p className="text-xs text-gray-700 break-all">{submission.docLink}</p>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    <Button
-                      variant="secondary"
-                      size="xs"
-                      onClick={() => copyText(submission.docLink, 'Document link copied')}
-                    >
-                      <Copy size={12} />
-                      Copy Link
-                    </Button>
+    <p className="text-xs text-gray-700 break-all">
+      {submission.prLink2}
+    </p>
 
-                    <a href={submission.docLink} target="_blank" rel="noreferrer">
-                      <Button variant="secondary" size="xs">
-                        <ExternalLink size={12} />
-                        Open Link
-                      </Button>
-                    </a>
-                  </div>
-                </div>
-              )}
+    <div className="flex flex-wrap gap-2 mt-2">
+      <Button
+        variant="secondary"
+        size="xs"
+        onClick={() => copyText(submission.prLink2, 'PR link copied')}
+      >
+        <Copy size={12} />
+        Copy PR
+      </Button>
+
+      <a href={submission.prLink2} target="_blank" rel="noreferrer">
+        <Button variant="secondary" size="xs">
+          <ExternalLink size={12} />
+          Open PR
+        </Button>
+      </a>
+    </div>
+  </div>
+)}
 
               {submission.summary && (
                 <div className="rounded-lg bg-white border border-purple-100 p-3 mb-3">
@@ -949,17 +982,9 @@ if (selectedUserIsManager && user?.role !== ROLES.SUPER_ADMIN) {
                 </div>
               )}
 
-              {submission.blockers && (
-                <div className="rounded-lg bg-white border border-amber-100 p-3">
-                  <p className="text-[10px] font-bold text-amber-500 uppercase mb-1">Doubts / Blockers</p>
-                  <p className="text-xs text-gray-700 whitespace-pre-line leading-relaxed">
-                    {submission.blockers}
-                  </p>
-                </div>
-              )}
-            </div>
+                      </div>
           </div>
-        )}
+        )}    
 
         {isEdit && canReview && hasSubmission(task) && (
           <div className="pt-4 border-t border-gray-100 space-y-3">
@@ -990,17 +1015,17 @@ if (selectedUserIsManager && user?.role !== ROLES.SUPER_ADMIN) {
           </div>
         )}
 
-        {isEdit && canSubmitWork && (
+        {isEdit && canSendPR && (
           <div className="pt-4 border-t border-gray-100">
             <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <p className="text-sm font-bold text-blue-700">Ready to submit?</p>
-                <p className="text-xs text-blue-600 mt-1">
-                  Add your PR link and short summary to send this task for review.
-                </p>
-              </div>
+  <p className="text-sm font-bold text-blue-700">Ready to send PR?</p>
+  <p className="text-xs text-blue-600 mt-1">
+    Add your GitHub PR links and short summary to send your PR request.
+  </p>
+</div>
 
-              <Button
+<Button
   variant="primary"
   onClick={() => {
     if (!task) return
@@ -1008,9 +1033,9 @@ if (selectedUserIsManager && user?.role !== ROLES.SUPER_ADMIN) {
     onSubmitWork?.(task)
   }}
 >
-                <Send size={14} />
-                Submit Work
-              </Button>
+  <Send size={14} />
+  Send PR Request
+</Button>
             </div>
           </div>
         )}
@@ -1053,8 +1078,21 @@ function TaskCard({
   const newTask = isNewTask(task)
   const borderClass = PRIORITY_BORDER[task.priority] ?? 'border-l-gray-300'
   const submitted = hasSubmission(task) || task.status === 'REVIEW'
-  const isAssignedIntern = user?.role === ROLES.INTERN && user?.id === getTaskAssigneeId(task)
-  const canSubmitWork = isAssignedIntern && task.status !== 'DONE'
+  const isTechTask = getSquadKey(task.squad) === 'TECH'
+
+const canSendPR =
+  isTechTask &&
+  (
+    (
+      user?.role === ROLES.INTERN &&
+      user?.id === getTaskAssigneeId(task)
+    ) ||
+    (
+      user?.role === ROLES.MANAGER &&
+      getSquadKey(user?.squad) === 'TECH'
+    )
+  ) &&
+  task.status !== 'DONE'
 
   function stopCardClick(e: MouseEvent) {
     e.preventDefault()
@@ -1137,7 +1175,7 @@ function TaskCard({
               onClick={e => e.stopPropagation()}
               onMouseDown={e => e.stopPropagation()}
             >
-              {canSubmitWork && (
+              {canSendPR && (
                 <button
                   type="button"
                   className="w-full text-left px-3 py-2 text-xs text-purple-600 hover:bg-purple-50 font-semibold"
@@ -1147,7 +1185,7 @@ function TaskCard({
                     setMenuOpen(false)
                   }}
                 >
-                  Submit Work
+                  Send PR Request
                 </button>
               )}
 
@@ -1211,9 +1249,19 @@ function TaskCard({
 
       {submitted && (
         <div className="rounded-lg bg-purple-50 border border-purple-100 px-2 py-1.5 mb-3">
-          <p className="text-[10px] font-bold text-purple-600 uppercase">
-            Submitted for Review
-          </p>
+          <p className="text-[10px] font-bold uppercase flex items-center gap-1">
+  {(task as any)?.reviewStatus === 'APPROVED' || task.status === 'DONE' ? (
+    <>
+      <span className="w-2 h-2 rounded-full bg-green-500"></span>
+      Approved
+    </>
+  ) : (
+    <>
+      <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
+      PR Submitted
+    </>
+  )}
+</p>
           <p className="text-[10px] text-purple-500 mt-0.5">
             Review PR link inside task details
           </p>
@@ -1569,8 +1617,21 @@ export default function TasksPage() {
                 const due = getDueBadge(task)
                 const submitted = hasSubmission(task) || task.status === 'REVIEW'
                 const submission = getSubmission(task)
-                const isAssignedIntern = user?.role === ROLES.INTERN && user?.id === getTaskAssigneeId(task)
-                const canSubmitWork = isAssignedIntern && task.status !== 'DONE'
+                const isTechTask = getSquadKey(task.squad) === 'TECH'
+
+const canSendPR =
+  isTechTask &&
+  (
+    (
+      user?.role === ROLES.INTERN &&
+      user?.id === getTaskAssigneeId(task)
+    ) ||
+    (
+  user?.role === ROLES.MANAGER &&
+  getSquadKey(user?.squad) === 'TECH'
+)
+  ) &&
+  task.status !== 'DONE'
 
                 return (
                   <tr
@@ -1652,9 +1713,19 @@ export default function TasksPage() {
                     <td className="px-6 py-4">
                       {submitted ? (
                         <div className="flex flex-col gap-1">
-                          <span className="text-[10px] font-bold text-purple-600 bg-purple-50 border border-purple-100 px-2 py-1 rounded-full w-fit">
-                            Submitted
-                          </span>
+                          <span className="text-[10px] font-bold px-2 py-1 rounded-full border flex items-center gap-1 w-fit">
+  {(task as any)?.reviewStatus === 'APPROVED' || task.status === 'DONE' ? (
+    <>
+      <span className="w-2 h-2 rounded-full bg-green-500"></span>
+      Approved
+    </>
+  ) : (
+    <>
+      <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
+      PR Submitted
+    </>
+  )}
+</span>
                           {submission.prLink && (
                             <button
                               onClick={e => {
@@ -1674,7 +1745,7 @@ export default function TasksPage() {
 
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                        {canSubmitWork && (
+                        {canSendPR && (
                           <Button
                             variant="ghost"
                             size="xs"
@@ -1684,7 +1755,7 @@ export default function TasksPage() {
                             }}
                             className="text-purple-600 hover:bg-purple-50"
                           >
-                            Submit
+                             Send PR
                           </Button>
                         )}
 
