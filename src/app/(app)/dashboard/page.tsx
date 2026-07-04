@@ -11,6 +11,8 @@ import { useGetLinkedinPostsQuery } from '@/store/api/linkedinApi'
 import { useGetTasksQuery, useGetTasksLeaderboardQuery } from '@/store/api/tasksApi'
 import { useGetUsersQuery } from '@/store/api/usersApi'
 import { Spinner, Avatar, Badge } from '@/components/ui'
+import { DashboardAnnouncementCard } from '@/components/dashboard/DashboardAnnouncementCard'
+import { TaskReminderBanner } from '@/components/dashboard/TaskReminderBanner'
 import { useCurrentUser } from '@/store/hooks'
 import { cn } from '@/lib/utils'
 import type { Task } from '@/types'
@@ -254,6 +256,11 @@ const leadingSquadMeta = leadingSquad
       </div>
 
       {loading && <div className="flex justify-center py-10"><Spinner size={26} /></div>}
+            <DashboardAnnouncementCard />
+
+      {user?.role === 'INTERN' && (
+        <TaskReminderBanner />
+      )}
       {user?.role === 'INTERN' && (
   <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-7">
     <div className="card p-4 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
