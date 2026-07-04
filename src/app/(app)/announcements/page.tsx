@@ -1,17 +1,14 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Megaphone, Plus, Trash2, Pencil } from 'lucide-react'
 import { useCurrentUser } from '@/store/hooks'
-
-type AnnouncementType = 'GENERAL' | 'MEETING' | 'DEADLINE' | 'URGENT'
-
-type Announcement = {
-  id: string
-  title: string
-  message: string
-  type: AnnouncementType
-}
+import {
+  AnnouncementType,
+  useCreateAnnouncementMutation,
+  useDeleteAnnouncementMutation,
+  useGetAnnouncementsQuery,
+} from '@/store/api/announcementsApi'
 
 const typeStyles: Record<AnnouncementType, string> = {
   GENERAL: 'bg-blue-50 text-blue-700 border-blue-200',
@@ -22,53 +19,42 @@ const typeStyles: Record<AnnouncementType, string> = {
 
 export default function AnnouncementsPage() {
   const user = useCurrentUser()
+  const canManage = user?.role === 'SUPER_ADMIN'
 
-  const [announcements, setAnnouncements] = useState<Announcement[]>([])
-  useEffect(() => {
-  const saved = localStorage.getItem('announcements')
-
-  if (saved) {
-    setAnnouncements(JSON.parse(saved))
-  }
-}, [])
+  const { data: announcements = [] } = useGetAnnouncementsQuery()
+  const [createAnnouncement, { isLoading: isPosting }] = useCreateAnnouncementMutation()
+  const [deleteAnnouncement] = useDeleteAnnouncementMutation()
 
   const [title, setTitle] = useState('')
   const [message, setMessage] = useState('')
   const [type, setType] = useState<AnnouncementType>('GENERAL')
   const [error, setError] = useState('')
 
-  const canManage = user?.role === 'SUPER_ADMIN'
-
-    function handlePost() {
+  async function handlePost() {
   if (!title.trim() || !message.trim() || !type.trim()) {
     setError('Please fill all fields before posting the announcement.')
     return
   }
 
-  const newAnnouncement = {
-    id: Date.now().toString(),
-    title,
-    message,
-    type,
+  try {
+    await createAnnouncement({ title, message, type }).unwrap()
+
+    setTitle('')
+    setMessage('')
+    setType('GENERAL')
+    setError('')
+  } catch (err) {
+    setError('Failed to post announcement. Please make sure backend is running and you are logged in as Super Admin.')
   }
-
-  const updatedAnnouncements = [newAnnouncement, ...announcements]
-
-  setAnnouncements(updatedAnnouncements)
-  localStorage.setItem('announcements', JSON.stringify(updatedAnnouncements))
-
-  setTitle('')
-  setMessage('')
-  setType('GENERAL')
-  setError('')
 }
 
-    function handleDelete(id: string) {
-    const updatedAnnouncements = announcements.filter((item) => item.id !== id)
-
-    setAnnouncements(updatedAnnouncements)
-    localStorage.setItem('announcements', JSON.stringify(updatedAnnouncements))
+  async function handleDelete(id: number) {
+  try {
+    await deleteAnnouncement(id).unwrap()
+  } catch (err) {
+    setError('Failed to delete announcement. Please try again.')
   }
+}
 
   if (!canManage) {
     return (
@@ -131,18 +117,20 @@ export default function AnnouncementsPage() {
             <option value="DEADLINE">Deadline</option>
             <option value="URGENT">Urgent</option>
           </select>
+
           {error && (
-  <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-    {error}
-  </p>
-)}
+            <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+              {error}
+            </p>
+          )}
 
           <button
             onClick={handlePost}
-            className="inline-flex w-fit items-center gap-2 rounded-xl bg-gray-900 px-5 py-3 text-sm font-semibold text-white hover:bg-gray-800"
+            disabled={isPosting}
+            className="inline-flex w-fit items-center gap-2 rounded-xl bg-gray-900 px-5 py-3 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-60"
           >
             <Plus size={16} />
-            Post Announcement
+            {isPosting ? 'Posting...' : 'Post Announcement'}
           </button>
         </div>
       </div>
