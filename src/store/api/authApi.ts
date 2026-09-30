@@ -17,8 +17,21 @@ export const authApi = baseApi.injectEndpoints({
     acceptInvite: b.mutation<LoginResponse, { token: string; name: string; password: string }>({
       query: (body) => ({ url: '/auth/accept-invite', method: 'POST', body }),
     }),
+    forgotPassword: b.mutation<{ message: string }, { email: string }>({
+      query: (body) => ({ url: '/auth/forgot-password', method: 'POST', body }),
+    }),
+    resetPassword: b.mutation<{ message: string }, { token: string; password: string }>({
+      query: (body) => ({ url: '/auth/reset-password', method: 'POST', body }),
+    }),
   }),
   overrideExisting: false,
 })
 
-export const { useLoginMutation, useLogoutMutation, useGetMeQuery, useAcceptInviteMutation } = authApi
+export const {
+  useLoginMutation,
+  useLogoutMutation,
+  useGetMeQuery,
+  useAcceptInviteMutation,
+  useForgotPasswordMutation,
+  useResetPasswordMutation,
+} = authApi
